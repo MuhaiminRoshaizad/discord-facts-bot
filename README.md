@@ -1,54 +1,188 @@
 # Discord Fact of the Day Bot 📚
 
-A Discord bot that automatically sends a random interesting fact every day to any server!
+A Discord bot that automatically sends a random interesting fact every day to your server!
 
-## Features
+## ✨ Features
 
-- 🤖 Automatically posts facts daily at 9:00 AM
-- 🌍 Works across multiple Discord servers
-- ⚙️ Server admins can choose which channel receives daily facts
-- 📖 Manual `!fact` command to get facts anytime
-- 🏓 `!ping` command to check bot status
-- 💾 Saves settings automatically
-- ☁️ Runs 24/7 on Railway
+- 🤖 Automatically posts facts daily at 9:00 AM (Malaysia Time - UTC+8)
+- 🌍 Works on multiple Discord servers
+- ⚙️ Server admins choose which channel receives daily facts
+- 📖 Get facts on-demand with `!fact` command
+- 🏓 Check bot status with `!ping`
+- 💾 Remembers your settings automatically
+- 📊 Beautiful embed messages
+- ☁️ Runs 24/7 - always online!
 
-## Commands
+---
 
-### 👥 User Commands (Everyone Can Use)
-- `!fact` - Get a random fact immediately
-- `!ping` - Check if the bot is online
-- `!bothelp` - Show all commands
-- `!info` - Show setup information for this server
+## 🚀 Quick Start
 
-### 🔧 Admin Commands (Administrator Permission Required)
-- `!setchannel` - Enable daily facts in the current channel
-- `!removechannel` - Disable daily facts in this server
+### **Step 1: Invite the Bot**
 
-## How to Use
+Click here to add the bot to your server:
 
-### For Server Owners/Admins:
+👉 **[Invite Bot to Your Server](YOUR_INVITE_LINK_HERE)** 👈
 
-1. **Invite the bot** to your Discord server (use the invite link)
-2. Go to the channel where you want daily facts posted
-3. Type `!setchannel` in that channel
-4. Done! You'll get a fact every day at 9:00 AM
+> **Note:** You need "Manage Server" permission to add bots.
 
-### For Regular Users:
+### **Step 2: Set Up Daily Facts**
 
-- Type `!fact` anytime to get a random fact
-- Type `!info` to see if daily facts are enabled in your server
-- Type `!bothelp` to see all available commands
+1. Go to the channel where you want daily facts
+2. Type: `!setchannel`
+3. Done! 🎉
 
-## Setup for Developers
+You'll now get a random fact every day at 9:00 AM Malaysia Time!
+
+---
+
+## 📚 Commands
+
+### 👥 **Everyone Can Use:**
+
+| Command | Description |
+|---------|-------------|
+| `!fact` | Get a random fact right now |
+| `!ping` | Check if the bot is online |
+| `!bothelp` | Show all commands |
+| `!info` | See if daily facts are enabled in this server |
+
+### 🔧 **Admin Only (Requires Administrator Permission):**
+
+| Command | Description |
+|---------|-------------|
+| `!setchannel` | Enable daily facts in the current channel |
+| `!removechannel` | Stop daily facts in this server |
+
+---
+
+## 🕐 When Are Facts Sent?
+
+Daily facts are posted at **9:00 AM Malaysia Time (UTC+8)**, which is:
+
+- 🇲🇾 Malaysia/Singapore: **9:00 AM**
+- 🇬🇧 London (GMT): **1:00 AM**
+- 🇺🇸 New York (EST): **8:00 PM** (previous day)
+- 🇺🇸 Los Angeles (PST): **5:00 PM** (previous day)
+
+---
+
+## ❓ FAQ
+
+### **Q: How do I change which channel gets facts?**
+A: Just run `!setchannel` in the new channel. The bot will switch to that channel.
+
+### **Q: Can I get facts in multiple channels?**
+A: Currently, only one channel per server is supported.
+
+### **Q: The bot isn't responding to commands. What's wrong?**
+A: Make sure:
+- The bot has permission to read and send messages in that channel
+- You're typing the `!` prefix correctly
+
+### **Q: Can I change the time when facts are sent?**
+A: Not yet! But this feature may be added in the future.
+
+### **Q: Where do the facts come from?**
+A: Facts are fetched from the [Useless Facts API](https://uselessfacts.jsph.pl/).
+
+---
+
+## 🛡️ Permissions Needed
+
+The bot needs these permissions:
+- ✅ Read Messages/View Channels
+- ✅ Send Messages
+- ✅ Embed Links
+
+These are automatically included in the invite link!
+
+---
+
+## 🐛 Issues or Suggestions?
+
+- Found a bug? [Open an issue on GitHub](https://github.com/MuhaiminRoshaizad/discord-facts-bot/issues)
+- Have an idea? Let me know!
+
+---
+
+## 👨‍💻 For Developers
+
+Want to run your own instance or contribute to the code?
+
+<details>
+<summary><b>Click here for developer setup instructions</b></summary>
 
 ### Prerequisites
 - Python 3.10 or higher
-- A Discord account
-- A Discord server where you have admin permissions
+- A Discord Bot Token
+- Railway account (or any cloud platform)
 
-### Local Installation
+### Local Setup
 
-1. **Clone this repository:**
+1. **Clone the repository:**
    ```bash
-   git clone https://github.com/MuhaiminRoshaizadi/discord-facts-bot.git
+   git clone https://github.com/MuhaiminRoshaizad/discord-facts-bot.git
    cd discord-facts-bot
+   ```
+
+2. **Install dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. **Create `.env` file:**
+   ```env
+   DISCORD_TOKEN=your_bot_token_here
+   ```
+
+4. **Run the bot:**
+   ```bash
+   python bot.py
+   ```
+
+### Changing Timezone
+
+Edit `bot.py` line 16:
+```python
+MY_TIMEZONE = pytz.timezone('Asia/Kuala_Lumpur')  # Change this
+```
+
+[List of all timezones](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)
+
+### Project Structure
+```
+discord-facts-bot/
+├── bot.py                 # Main bot code
+├── requirements.txt       # Dependencies
+├── Procfile              # Deployment config
+├── .env                  # Environment variables
+└── fact_channels.json    # Stores server settings
+```
+
+### Technologies
+- **discord.py** - Discord API
+- **requests** - HTTP requests
+- **python-dotenv** - Environment variables
+- **pytz** - Timezone handling
+- **Railway** - Cloud hosting
+
+### Contributing
+Pull requests are welcome! Ideas:
+- Slash commands support
+- Custom posting times per server
+- Fact categories
+- Multi-language support
+
+</details>
+
+---
+
+## 📜 License
+
+MIT License - Feel free to use and modify!
+
+---
+
+Made by [MuhaiminRoshaizad](https://github.com/MuhaiminRoshaizad)
+
+**⭐ Star this repo if you find it useful!**

@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands, tasks
 from datetime import time
+import pytz
 import requests
 import os
 from dotenv import load_dotenv
@@ -11,6 +12,9 @@ load_dotenv()
 
 # get token from .env file
 TOKEN = os.getenv('DISCORD_TOKEN')
+
+# setup timezone
+MY_TIMEZONE = pytz.timezone('Asia/Kuala_Lumpur')
 
 # setup bot
 intents = discord.Intents.default()
@@ -47,7 +51,7 @@ def get_random_fact():
         print(f"Error fetching fact: {e}")
         return "**📚 Fact of the Day**\n\nDid you know? The first computer bug was an actual bug - a moth stuck in a computer in 1947!"
 
-@tasks.loop(time=time(hour=9, minute=0))  # Runs daily at 9:00 AM
+@tasks.loop(time=time(hour=9, minute=0, tzinfo=MY_TIMEZONE))
 async def send_daily_fact():
     """Send daily fact to all registered channels"""
     for guild_id, channel_id in fact_channels.items():
