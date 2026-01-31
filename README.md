@@ -7,7 +7,7 @@ A Discord bot that automatically sends a random interesting fact every day!
 - Automatically posts a fact daily at 9:00 AM
 - Uses the Useless Facts API for random facts
 - Manual command `!fact` to get a fact anytime
-- Ping command to check bot status
+- `!ping` command to check bot status
 
 ## Setup Instructions
 

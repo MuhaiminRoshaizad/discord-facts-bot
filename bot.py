@@ -4,6 +4,22 @@ from datetime import time
 import requests
 import os
 from dotenv import load_dotenv
+from threading import Thread
+from flask import Flask
+
+# Flask app to keep the bot alive on Render
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "Bot is running!"
+
+def run():
+    app.run(host='0.0.0.0', port=8080)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
 
 # load environment variables
 load_dotenv()
@@ -26,7 +42,7 @@ def get_random_fact():
         return f"**📚 Fact of the Day**\n\n{fact}"
     except Exception as e:
         print(f"Error fetching fact: {e}")
-        return "**Fact of the Day**\n\nDid you know? The first computer bug was an actual bug - a moth stuck in a computer in 1947!"
+        return "**📚 Fact of the Day**\n\nDid you know? The first computer bug was an actual bug - a moth stuck in a computer in 1947!"
 
 @tasks.loop(time=time(hour=9, minute=0))  # Runs daily at 9:00 AM
 async def send_daily_fact():
@@ -59,9 +75,9 @@ async def fact(ctx):
 
 @bot.command()
 async def ping(ctx):
-    """!ping cmd to check bot responsive or nto"""
+    """!ping cmd to check bot responsive or not"""
     await ctx.send(f'🏓 Pong! Latency: {round(bot.latency * 1000)}ms')
 
-
 if __name__ == "__main__":
+    keep_alive()  # Start Flask server for Render
     bot.run(TOKEN)
