@@ -46,6 +46,7 @@ def load_channels():
 
 def save_channels(channels):
     """Save channels to file"""
+    
     with open(channels_file, 'w') as f:
         json.dump(channels, f)
 
@@ -124,7 +125,7 @@ async def removechannel(ctx):
         await ctx.send("❌ Daily facts are not currently enabled in this server.")
 
 @bot.command()
-async def help(ctx):
+async def bothelp(ctx):
     """Show all available commands and bot information"""
     embed = discord.Embed(
         title="📚 Fact of the Day Bot - Help",
@@ -137,7 +138,7 @@ async def help(ctx):
         value=(
             "`!fact` - Get a random fact right now\n"
             "`!ping` - Check if bot is online\n"
-            "`!help` - Show this help message\n"
+            "`!bothelp` - Show this help message\n"
             "`!info` - Show bot setup info"
         ), 
         inline=False
