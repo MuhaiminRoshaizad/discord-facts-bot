@@ -4,23 +4,7 @@ from datetime import time
 import requests
 import os
 from dotenv import load_dotenv
-from threading import Thread
-from flask import Flask
 import json
-
-# flask app to keep the bot alive on render
-app = Flask('')
-
-@app.route('/')
-def home():
-    return "Bot is running!"
-
-def run():
-    app.run(host='0.0.0.0', port=8080)
-
-def keep_alive():
-    t = Thread(target=run)
-    t.start()
 
 # load environment variables
 load_dotenv()
@@ -46,7 +30,6 @@ def load_channels():
 
 def save_channels(channels):
     """Save channels to file"""
-    
     with open(channels_file, 'w') as f:
         json.dump(channels, f)
 
@@ -198,9 +181,8 @@ async def info(ctx):
         inline=False
     )
     
-    embed.set_footer(text="Need help? Use !help")
+    embed.set_footer(text="Need help? Use !bothelp")
     await ctx.send(embed=embed)
 
 if __name__ == "__main__":
-    keep_alive()  # Start Flask server for Render
     bot.run(TOKEN)
