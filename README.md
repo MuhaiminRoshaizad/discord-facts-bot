@@ -21,7 +21,7 @@ A Discord bot that automatically sends a random interesting fact every day to yo
 
 Click here to add the bot to your server:
 
-👉 **[Invite Bot to Your Server](YOUR_INVITE_LINK_HERE)** 👈
+👉 **[Invite Bot to Your Server](https://discord.com/oauth2/authorize?client_id=1467015114032152586&permissions=84992&integration_type=0&scope=bot)** 👈
 
 > **Note:** You need "Manage Server" permission to add bots.
 
