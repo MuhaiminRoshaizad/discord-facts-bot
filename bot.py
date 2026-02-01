@@ -6,6 +6,8 @@ import requests
 import os
 from dotenv import load_dotenv
 import json
+import random
+import re
 
 # load environment variables
 load_dotenv()
@@ -13,19 +15,20 @@ load_dotenv()
 # get token from .env file
 TOKEN = os.getenv('DISCORD_TOKEN')
 
+# et Unsplash API key (free at https://unsplash.com/developers)
+UNSPLASH_ACCESS_KEY = os.getenv('UNSPLASH_ACCESS_KEY', None)
+
 # setup timezone
 MY_TIMEZONE = pytz.timezone('Asia/Kuala_Lumpur')
 
 # set the time (24 hour format) in Malaysia Time
-SCHEDULED_HOUR_MYT = 16
-SCHEDULED_MINUTE_MYT = 54
+SCHEDULED_HOUR_MYT = 18
+SCHEDULED_MINUTE_MYT = 53
 
 # auto convert UTC time
 def get_utc_time_from_myt(hour, minute):
     """Convert Malaysia Time to UTC time automatically"""
-    # create a time in Malaysia timezone
     myt = MY_TIMEZONE.localize(datetime.now().replace(hour=hour, minute=minute, second=0, microsecond=0))
-    # convert to UTC
     utc = myt.astimezone(pytz.UTC)
     return utc.hour, utc.minute
 
@@ -52,19 +55,101 @@ def save_channels(channels):
     with open(channels_file, 'w') as f:
         json.dump(channels, f)
 
-# dictionary to store which channel to post to for each server
 fact_channels = load_channels()
+
+def extract_keywords(text):
+    """Extract meaningful keywords from the fact text"""
+    # Remove common words and extract nouns/important words
+    common_words = {'the', 'a', 'an', 'is', 'was', 'are', 'were', 'of', 'in', 'on', 'at', 'to', 'for', 'with', 'by', 'from', 'that', 'this', 'it', 'and', 'or', 'but'}
+    
+    # Clean and split text
+    words = re.findall(r'\b[a-zA-Z]{4,}\b', text.lower())
+    
+    # Filter out common words
+    keywords = [word for word in words if word not in common_words]
+    
+    # Return top 3 keywords
+    return keywords[:3] if keywords else ['nature', 'science', 'world']
+
+def get_image_for_fact(fact_text):
+    """Get a relevant image from Unsplash based on fact keywords"""
+    if not UNSPLASH_ACCESS_KEY:
+        # Return a nice fallback image if no API key
+        fallback_images = [
+            "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800",  # Earth/Space
+            "https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=800",  # Books
+            "https://images.unsplash.com/photo-1507413245164-6160d8298b31?w=800",  # Nature
+            "https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?w=800",  # Galaxy
+            "https://images.unsplash.com/photo-1518770660439-4636190af475?w=800",  # Technology
+        ]
+        return random.choice(fallback_images)
+    
+    try:
+        keywords = extract_keywords(fact_text)
+        query = ' '.join(keywords)
+        
+        url = f"https://api.unsplash.com/photos/random"
+        params = {
+            'query': query,
+            'client_id': UNSPLASH_ACCESS_KEY,
+            'orientation': 'landscape'
+        }
+        
+        response = requests.get(url, params=params, timeout=5)
+        
+        if response.status_code == 200:
+            data = response.json()
+            return data['urls']['regular']
+        else:
+            # Fallback
+            return "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800"
+    except Exception as e:
+        print(f"Error fetching image: {e}")
+        return "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800"
 
 def get_random_fact():
     """Fetch a random fact from the Useless Facts API"""
     try:
-        response = requests.get('https://uselessfacts.jsph.pl/api/v2/facts/random')
+        response = requests.get('https://uselessfacts.jsph.pl/api/v2/facts/random', timeout=5)
         data = response.json()
-        fact = data['text']
-        return f"**📚 Fact of the Day**\n\n{fact}"
+        return data['text']
     except Exception as e:
         print(f"Error fetching fact: {e}")
-        return "**📚 Fact of the Day**\n\nDid you know? The first computer bug was an actual bug - a moth stuck in a computer in 1947!"
+        return "The first computer bug was an actual bug - a moth stuck in a computer in 1947!"
+
+def create_fact_embed(fact_text):
+    """Create a beautiful embed with image for the fact"""
+    
+    # Different themes for variety
+    themes = [
+        {"emoji": "🧠", "title": "Brain Food", "color": 0x9B59B6},
+        {"emoji": "💡", "title": "Bright Idea", "color": 0xF1C40F},
+        {"emoji": "🌟", "title": "Fun Fact", "color": 0x3498DB},
+        {"emoji": "📚", "title": "Did You Know?", "color": 0x1ABC9C},
+        {"emoji": "🔍", "title": "Interesting Discovery", "color": 0x2ECC71},
+        {"emoji": "🎯", "title": "Random Fact", "color": 0xE74C3C},
+        {"emoji": "✨", "title": "Amazing Fact", "color": 0xE67E22},
+    ]
+    
+    theme = random.choice(themes)
+    
+    embed = discord.Embed(
+        title=f"{theme['emoji']} {theme['title']}",
+        description=f"*{fact_text}*",
+        color=theme['color'],
+        timestamp=datetime.now(pytz.UTC)
+    )
+    
+    # Get relevant image
+    image_url = get_image_for_fact(fact_text)
+    embed.set_image(url=image_url)
+    
+    embed.set_footer(
+        text="💭 Daily Fact • Use !fact for more • Photo by Unsplash",
+        icon_url="https://em-content.zobj.net/thumbs/120/twitter/348/open-book_1f4d6.png"
+    )
+    
+    return embed
 
 # schedule in utc since Railway runs in UTC
 @tasks.loop(time=time(hour=SCHEDULED_HOUR_UTC, minute=SCHEDULED_MINUTE_UTC))
@@ -78,12 +163,18 @@ async def send_daily_fact():
     print(f"   Malaysia Time: {now_myt.strftime('%Y-%m-%d %H:%M:%S %Z')}")
     print(f"📊 Sending to {len(fact_channels)} channel(s)")
     
+    fact_text = get_random_fact()
+    fact_embed = create_fact_embed(fact_text)
+    
     for guild_id, channel_id in fact_channels.items():
         channel = bot.get_channel(int(channel_id))
         if channel:
-            fact = get_random_fact()
             try:
-                await channel.send(fact)
+                message = await channel.send(embed=fact_embed)
+                # Add reactions for engagement
+                await message.add_reaction("🤯")
+                await message.add_reaction("💡")
+                await message.add_reaction("❤️")
                 print(f"✅ Sent daily fact to {channel.guild.name} - #{channel.name}")
             except Exception as e:
                 print(f"❌ Error sending to channel {channel_id}: {e}")
@@ -113,8 +204,11 @@ async def on_ready():
 @bot.command()
 async def fact(ctx):
     """!fact in Discord to get random facts"""
-    fact = get_random_fact()
-    await ctx.send(fact)
+    fact_text = get_random_fact()
+    fact_embed = create_fact_embed(fact_text)
+    message = await ctx.send(embed=fact_embed)
+    await message.add_reaction("🤯")
+    await message.add_reaction("💡")
 
 @bot.command()
 async def ping(ctx):
@@ -127,7 +221,6 @@ async def checktime(ctx):
     now_utc = datetime.now(pytz.UTC)
     now_myt = now_utc.astimezone(MY_TIMEZONE)
     
-    # format the scheduled time nicely
     scheduled_time_12h = datetime.strptime(f"{SCHEDULED_HOUR_MYT}:{SCHEDULED_MINUTE_MYT}", "%H:%M").strftime("%I:%M %p")
     
     embed = discord.Embed(
@@ -185,7 +278,7 @@ async def bothelp(ctx):
     
     embed = discord.Embed(
         title="📚 Fact of the Day Bot - Help",
-        description="A bot that sends interesting random facts every day!",
+        description="A bot that sends interesting random facts with beautiful images every day!",
         color=discord.Color.blue()
     )
     
