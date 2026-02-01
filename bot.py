@@ -16,8 +16,8 @@ TOKEN = os.getenv('DISCORD_TOKEN')
 # setup timezone
 MY_TIMEZONE = pytz.timezone('Asia/Kuala_Lumpur')
 
-# convert 9:00 AM Malaysia Time = 1:00 AM UTC (9 - 8 = 1)
-SCHEDULED_HOUR_UTC = 1  # 1 AM UTC = 9 AM Malaysia Time (UTC+8)
+# convert 1:00 PM Malaysia Time = 5:00 AM UTC (13 - 8 = 5)
+SCHEDULED_HOUR_UTC = 5  # 5 AM UTC = 1 PM Malaysia Time (UTC+8)
 SCHEDULED_MINUTE_UTC = 0
 
 # setup bot
@@ -91,7 +91,7 @@ async def before_daily_fact():
     print("Daily fact task is ready!")
     print(f"⏰ Current UTC Time: {now_utc.strftime('%H:%M:%S')}")
     print(f"⏰ Current Malaysia Time: {now_myt.strftime('%H:%M:%S')}")
-    print(f"⏰ Scheduled to run daily at {SCHEDULED_HOUR_UTC:02d}:{SCHEDULED_MINUTE_UTC:02d} UTC (9:00 AM Malaysia Time)")
+    print(f"⏰ Scheduled to run daily at {SCHEDULED_HOUR_UTC:02d}:{SCHEDULED_MINUTE_UTC:02d} UTC (1:00 PM Malaysia Time)")
 
 @bot.event
 async def on_ready():
@@ -140,7 +140,7 @@ async def checktime(ctx):
     
     embed.add_field(
         name="📅 Scheduled Post Time",
-        value=f"**9:00 AM Malaysia Time** (1:00 AM UTC)\nRuns daily automatically",
+        value=f"**1:00 PM Malaysia Time** (5:00 AM UTC)\nRuns daily automatically",
         inline=False
     )
     
@@ -152,7 +152,7 @@ async def setchannel(ctx):
     """Set this channel to receive daily facts - use !setchannel (Admin only)"""
     fact_channels[str(ctx.guild.id)] = str(ctx.channel.id)
     save_channels(fact_channels)
-    await ctx.send(f"✅ Daily facts will now be posted in {ctx.channel.mention} at 9:00 AM Malaysia Time every day!")
+    await ctx.send(f"✅ Daily facts will now be posted in {ctx.channel.mention} at 1:00 PM Malaysia Time every day!")
     print(f"✅ Channel set for {ctx.guild.name}: #{ctx.channel.name}")
 
 @bot.command()
@@ -199,7 +199,7 @@ async def bothelp(ctx):
     
     embed.add_field(
         name="⏰ Automatic Feature", 
-        value="Daily facts are posted at **9:00 AM Malaysia Time (UTC+8)** in channels set by server admins",
+        value="Daily facts are posted at **1:00 PM Malaysia Time (UTC+8)** in channels set by server admins",
         inline=False
     )
     
@@ -238,7 +238,7 @@ async def info(ctx):
     
     embed.add_field(
         name="⏰ Posting Time", 
-        value="9:00 AM Malaysia Time (UTC+8) daily (if enabled)",
+        value="1:00 PM Malaysia Time (UTC+8) daily (if enabled)",
         inline=False
     )
     
