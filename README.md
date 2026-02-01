@@ -43,6 +43,7 @@ You'll now get a random fact every day at 9:00 AM Malaysia Time!
 |---------|-------------|
 | `!fact` | Get a random fact right now |
 | `!ping` | Check if the bot is online |
+| `!checktime` | Check current bot time and schedule |
 | `!bothelp` | Show all commands |
 | `!info` | See if daily facts are enabled in this server |
 
