@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands, tasks
-from datetime import time
+from datetime import datetime, time
 import pytz
 import requests
 import os
@@ -16,9 +16,20 @@ TOKEN = os.getenv('DISCORD_TOKEN')
 # setup timezone
 MY_TIMEZONE = pytz.timezone('Asia/Kuala_Lumpur')
 
-# convert 1:00 PM Malaysia Time = 5:00 AM UTC (13 - 8 = 5)
-SCHEDULED_HOUR_UTC = 5  # 5 AM UTC = 1 PM Malaysia Time (UTC+8)
-SCHEDULED_MINUTE_UTC = 0
+# set the time (24 hour format) in Malaysia Time
+SCHEDULED_HOUR_MYT = 16
+SCHEDULED_MINUTE_MYT = 50
+
+# auto convert UTC time
+def get_utc_time_from_myt(hour, minute):
+    """Convert Malaysia Time to UTC time automatically"""
+    # create a time in Malaysia timezone
+    myt = MY_TIMEZONE.localize(datetime.now().replace(hour=hour, minute=minute, second=0, microsecond=0))
+    # convert to UTC
+    utc = myt.astimezone(pytz.UTC)
+    return utc.hour, utc.minute
+
+SCHEDULED_HOUR_UTC, SCHEDULED_MINUTE_UTC = get_utc_time_from_myt(SCHEDULED_HOUR_MYT, SCHEDULED_MINUTE_MYT)
 
 # setup bot
 intents = discord.Intents.default()
@@ -58,9 +69,7 @@ def get_random_fact():
 # schedule in utc since Railway runs in UTC
 @tasks.loop(time=time(hour=SCHEDULED_HOUR_UTC, minute=SCHEDULED_MINUTE_UTC))
 async def send_daily_fact():
-    """Send daily fact to all registered channels at 9:00 AM Malaysia Time"""
-    from datetime import datetime
-    
+    """Send daily fact to all registered channels"""
     now_utc = datetime.now(pytz.UTC)
     now_myt = now_utc.astimezone(MY_TIMEZONE)
     
@@ -83,7 +92,6 @@ async def send_daily_fact():
 async def before_daily_fact():
     """wait until the bot is ready before starting the loop"""
     await bot.wait_until_ready()
-    from datetime import datetime
     
     now_utc = datetime.now(pytz.UTC)
     now_myt = now_utc.astimezone(MY_TIMEZONE)
@@ -91,7 +99,7 @@ async def before_daily_fact():
     print("Daily fact task is ready!")
     print(f"⏰ Current UTC Time: {now_utc.strftime('%H:%M:%S')}")
     print(f"⏰ Current Malaysia Time: {now_myt.strftime('%H:%M:%S')}")
-    print(f"⏰ Scheduled to run daily at {SCHEDULED_HOUR_UTC:02d}:{SCHEDULED_MINUTE_UTC:02d} UTC (1:00 PM Malaysia Time)")
+    print(f"⏰ Scheduled to run at {SCHEDULED_HOUR_MYT:02d}:{SCHEDULED_MINUTE_MYT:02d} Malaysia Time ({SCHEDULED_HOUR_UTC:02d}:{SCHEDULED_MINUTE_UTC:02d} UTC)")
 
 @bot.event
 async def on_ready():
@@ -116,10 +124,11 @@ async def ping(ctx):
 @bot.command()
 async def checktime(ctx):
     """Check current time and scheduled time"""
-    from datetime import datetime
-    
     now_utc = datetime.now(pytz.UTC)
     now_myt = now_utc.astimezone(MY_TIMEZONE)
+    
+    # format the scheduled time nicely
+    scheduled_time_12h = datetime.strptime(f"{SCHEDULED_HOUR_MYT}:{SCHEDULED_MINUTE_MYT}", "%H:%M").strftime("%I:%M %p")
     
     embed = discord.Embed(
         title="🕐 Bot Time Information",
@@ -140,7 +149,7 @@ async def checktime(ctx):
     
     embed.add_field(
         name="📅 Scheduled Post Time",
-        value=f"**1:00 PM Malaysia Time** (5:00 AM UTC)\nRuns daily automatically",
+        value=f"**{scheduled_time_12h} Malaysia Time**\n({SCHEDULED_HOUR_UTC:02d}:{SCHEDULED_MINUTE_UTC:02d} UTC)\nRuns daily automatically",
         inline=False
     )
     
@@ -150,9 +159,11 @@ async def checktime(ctx):
 @commands.has_permissions(administrator=True)
 async def setchannel(ctx):
     """Set this channel to receive daily facts - use !setchannel (Admin only)"""
+    scheduled_time_12h = datetime.strptime(f"{SCHEDULED_HOUR_MYT}:{SCHEDULED_MINUTE_MYT}", "%H:%M").strftime("%I:%M %p")
+    
     fact_channels[str(ctx.guild.id)] = str(ctx.channel.id)
     save_channels(fact_channels)
-    await ctx.send(f"✅ Daily facts will now be posted in {ctx.channel.mention} at 1:00 PM Malaysia Time every day!")
+    await ctx.send(f"✅ Daily facts will now be posted in {ctx.channel.mention} at {scheduled_time_12h} Malaysia Time every day!")
     print(f"✅ Channel set for {ctx.guild.name}: #{ctx.channel.name}")
 
 @bot.command()
@@ -170,6 +181,8 @@ async def removechannel(ctx):
 @bot.command()
 async def bothelp(ctx):
     """Show all available commands and bot information"""
+    scheduled_time_12h = datetime.strptime(f"{SCHEDULED_HOUR_MYT}:{SCHEDULED_MINUTE_MYT}", "%H:%M").strftime("%I:%M %p")
+    
     embed = discord.Embed(
         title="📚 Fact of the Day Bot - Help",
         description="A bot that sends interesting random facts every day!",
@@ -199,7 +212,7 @@ async def bothelp(ctx):
     
     embed.add_field(
         name="⏰ Automatic Feature", 
-        value="Daily facts are posted at **1:00 PM Malaysia Time (UTC+8)** in channels set by server admins",
+        value=f"Daily facts are posted at **{scheduled_time_12h} Malaysia Time (UTC+8)** in channels set by server admins",
         inline=False
     )
     
@@ -209,6 +222,8 @@ async def bothelp(ctx):
 @bot.command()
 async def info(ctx):
     """Show information about bot setup in this server"""
+    scheduled_time_12h = datetime.strptime(f"{SCHEDULED_HOUR_MYT}:{SCHEDULED_MINUTE_MYT}", "%H:%M").strftime("%I:%M %p")
+    
     embed = discord.Embed(
         title="📚 Bot Setup Info",
         description=f"Information for **{ctx.guild.name}**",
@@ -238,7 +253,7 @@ async def info(ctx):
     
     embed.add_field(
         name="⏰ Posting Time", 
-        value="1:00 PM Malaysia Time (UTC+8) daily (if enabled)",
+        value=f"{scheduled_time_12h} Malaysia Time (UTC+8) daily (if enabled)",
         inline=False
     )
     
