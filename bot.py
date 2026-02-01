@@ -18,7 +18,7 @@ MY_TIMEZONE = pytz.timezone('Asia/Kuala_Lumpur')
 
 # set the time (24 hour format) in Malaysia Time
 SCHEDULED_HOUR_MYT = 16
-SCHEDULED_MINUTE_MYT = 50
+SCHEDULED_MINUTE_MYT = 54
 
 # auto convert UTC time
 def get_utc_time_from_myt(hour, minute):
