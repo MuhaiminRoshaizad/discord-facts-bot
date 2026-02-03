@@ -22,8 +22,8 @@ UNSPLASH_ACCESS_KEY = os.getenv('UNSPLASH_ACCESS_KEY', None)
 MY_TIMEZONE = pytz.timezone('Asia/Kuala_Lumpur')
 
 # set the time (24 hour format) in Malaysia Time
-SCHEDULED_HOUR_MYT = 18
-SCHEDULED_MINUTE_MYT = 53
+SCHEDULED_HOUR_MYT = 12
+SCHEDULED_MINUTE_MYT = 00
 
 # auto convert UTC time
 def get_utc_time_from_myt(hour, minute):
