@@ -42,7 +42,7 @@ import {
   saveRun,
   type Ctx,
 } from '../commands/shared';
-import { renderRun, resolveCodexPage } from '../commands/handlers';
+import { discoveredMap, renderRun, resolveCodexPage } from '../commands/handlers';
 import {
   codexEmbed,
   codexPageRow,
@@ -160,7 +160,9 @@ async function handleRun(ctx: Ctx, raw: string): Promise<Response> {
   }
 
   const turn = await saveRun(ctx, row, state, 'active');
-  return updateMessage(renderRun(state, row.id, turn, loaded.echoes));
+  return updateMessage(
+    renderRun(state, row.id, turn, loaded.echoes, await discoveredMap(ctx)),
+  );
 }
 
 /** The value chosen from a select menu, if this press came from one. */
@@ -425,8 +427,7 @@ async function handleCodex(ctx: Ctx, raw: string): Promise<Response> {
   const [, , requested = ''] = raw.split('|');
   const page = resolveCodexPage(requested);
 
-  const rows = await listDiscoveries(ctx.env.DB, ctx.userId);
-  const discovered = new Map(rows.map((r) => [`${r.entry_type}:${r.entry_id}`, r.flags]));
+  const discovered = await discoveredMap(ctx);
 
   return updateMessage({
     embeds: [codexEmbed(discovered, page)],

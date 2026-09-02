@@ -218,8 +218,7 @@ const codex: Handler = async (ctx) => {
   const option = ctx.interaction.data?.options?.find((o) => o.name === 'page');
   const page = resolveCodexPage(String(option?.value ?? ''));
 
-  const rows = await listDiscoveries(ctx.env.DB, ctx.userId);
-  const discovered = new Map(rows.map((r) => [`${r.entry_type}:${r.entry_id}`, r.flags]));
+  const discovered = await discoveredMap(ctx);
 
   return reply({
     embeds: [codexEmbed(discovered, page)],
@@ -267,16 +266,23 @@ const setchannel: Handler = async (ctx) => {
 
 // --- /descend -------------------------------------------------------------
 
-/** Render whichever phase a run is in. Shared by the command and the buttons. */
+/**
+ * Render whichever phase a run is in. Shared by the command and the buttons.
+ *
+ * `discovered` is what the player already knows, so the fight can show an
+ * enemy's tested affinities. Without it the codex is knowledge the player
+ * cannot reach at the one moment it decides anything.
+ */
 export function renderRun(
   state: ReturnType<typeof parseRunState>,
   runIdentifier: string,
   turn: number,
   carried: EchoRow[],
+  discovered: Map<string, number>,
 ) {
   if (state.phase === 'combat' && state.combat) {
     return {
-      embeds: [combatEmbed(state.combat, state.depth)],
+      embeds: [combatEmbed(state.combat, state.depth, discovered, state.targetId)],
       components: combatComponents(
         state.combat,
         runIdentifier,
@@ -310,7 +316,13 @@ const descend: Handler = async (ctx) => {
   const active = await getActiveRun(ctx.env.DB, ctx.userId);
   if (active) {
     const state = parseRunState(active);
-    const view = renderRun(state, active.id, active.turn, loaded.echoes);
+    const view = renderRun(
+      state,
+      active.id,
+      active.turn,
+      loaded.echoes,
+      await discoveredMap(ctx),
+    );
     return reply({ ...view, content: 'You are already in a Rift.' });
   }
 
@@ -381,8 +393,14 @@ const descend: Handler = async (ctx) => {
     resolve_updated_at: spent.updatedAt,
   });
 
-  return reply(renderRun(state, identifier, 0, loaded.echoes));
+  return reply(renderRun(state, identifier, 0, loaded.echoes, await discoveredMap(ctx)));
 };
+
+/** Codex entries keyed `type:id`, for showing what is known about an enemy. */
+export async function discoveredMap(ctx: Ctx): Promise<Map<string, number>> {
+  const rows = await listDiscoveries(ctx.env.DB, ctx.userId);
+  return new Map(rows.map((r) => [`${r.entry_type}:${r.entry_id}`, r.flags]));
+}
 
 // --- routing --------------------------------------------------------------
 

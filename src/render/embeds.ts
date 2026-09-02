@@ -16,6 +16,7 @@ import {
   living,
   usableSkills,
   WANDERER_ID,
+  type Combatant,
   type CombatState,
 } from '../game/combat';
 import { describeCard, type DrawCard } from '../game/draw';
@@ -55,10 +56,21 @@ export const COLORS = {
 
 // --- small helpers --------------------------------------------------------
 
+/**
+ * A health bar.
+ *
+ * Filled and empty differ in *shape*, not shade. The block-and-light-shade
+ * pair reads as one undifferentiated grey slab on Discord's dark theme, which
+ * is worse than showing no bar at all.
+ *
+ * Anything still standing keeps at least one filled segment however badly
+ * hurt: an empty bar beside "3/45" reads as dead.
+ */
 export function bar(current: number, max: number, width = 10): string {
   const safeMax = Math.max(1, max);
-  const filled = Math.max(0, Math.min(width, Math.round((current / safeMax) * width)));
-  return `${'█'.repeat(filled)}${'░'.repeat(width - filled)}`;
+  const exact = (Math.max(0, current) / safeMax) * width;
+  const filled = current > 0 ? Math.max(1, Math.min(width, Math.round(exact))) : 0;
+  return `${'▰'.repeat(filled)}${'▱'.repeat(width - filled)}`;
 }
 
 export function duration(seconds: number): string {
@@ -74,7 +86,60 @@ export function stars(rarity: number): string {
   return `${'★'.repeat(rarity)}${'☆'.repeat(Math.max(0, 5 - rarity))}`;
 }
 
-/** Affinities as a compact line. Hidden entries show as a dash. */
+/**
+ * What the player has actually learned about an enemy, for the fight itself.
+ *
+ * Unlike the codex grid this drops everything neutral and reduces the untried
+ * to a row of icons, because mid-fight the only question is what to throw at
+ * the thing. Seven dashes for elements that do nothing is noise standing where
+ * the answer should be.
+ */
+export function knownAffinities(table: AffinityTable, revealed: number): string {
+  const notable: string[] = [];
+  const untried: string[] = [];
+
+  ELEMENTS.forEach((element, index) => {
+    if ((revealed & (1 << index)) === 0) {
+      untried.push(ELEMENT_EMOJI[element]);
+      return;
+    }
+    const state = table[element] ?? 'neutral';
+    if (state === 'neutral') return;
+    notable.push(`${AFFINITY_LABEL[state].toLowerCase()} ${ELEMENT_EMOJI[element]}`);
+  });
+
+  if (notable.length === 0 && untried.length === ELEMENTS.length) {
+    return '_nothing known — hit it and find out_';
+  }
+
+  const head = notable.length > 0 ? notable.join(' · ') : 'no weakness found';
+  return untried.length > 0 ? `${head} · untried ${untried.join('')}` : head;
+}
+
+/**
+ * The wielder's own exposure, in the second person.
+ *
+ * The single most confusing thing about the first version of the fight panel
+ * was a bare affinity row under "Summoned" that every reader took for the
+ * enemy's weaknesses when it was in fact their own.
+ */
+export function ownAffinities(table: AffinityTable): string {
+  const weak: string[] = [];
+  const shrugged: string[] = [];
+
+  for (const element of ELEMENTS) {
+    const state = table[element] ?? 'neutral';
+    if (state === 'weak') weak.push(ELEMENT_EMOJI[element]);
+    else if (state !== 'neutral') shrugged.push(ELEMENT_EMOJI[element]);
+  }
+
+  const parts: string[] = [];
+  if (weak.length > 0) parts.push(`**they can hurt you with ${weak.join('')}**`);
+  if (shrugged.length > 0) parts.push(`you shrug off ${shrugged.join('')}`);
+  return parts.length > 0 ? parts.join(' · ') : 'nothing hits you especially hard';
+}
+
+/** The full affinity grid, for the codex where completeness is the point. */
 export function affinityLine(table: AffinityTable, revealed?: number): string {
   return ELEMENTS.map((element, index) => {
     const hidden = revealed !== undefined && (revealed & (1 << index)) === 0;
@@ -276,46 +341,94 @@ export function echoSelectRow(
 
 // --- combat ---------------------------------------------------------------
 
-function combatantLine(name: string, hp: number, maxHp: number, downed: boolean): string {
-  return `${downed ? '↓ ' : ' '}${name.padEnd(14).slice(0, 14)} ${bar(hp, maxHp)} ${hp}/${maxHp}`;
+
+/**
+ * What the player knows about a Husk right now: whatever the codex already
+ * holds, merged with anything tried in this very fight. Merging the two is
+ * what makes a discovery land immediately instead of arriving after the run.
+ */
+function revealedFor(
+  state: CombatState,
+  speciesId: string,
+  discovered: Map<string, number>,
+): number {
+  return (discovered.get(`husk:${speciesId}`) ?? 0) | (state.struck[speciesId] ?? 0);
 }
 
-export function combatEmbed(state: CombatState, depth: number): Embed {
+function everyHuskDowned(husks: Combatant[]): boolean {
+  const standing = husks.filter((h) => h.hp > 0);
+  return standing.length > 0 && standing.every((h) => h.downed);
+}
+
+/**
+ * The fight panel.
+ *
+ * Prose rather than a monospace block: aligned columns of block characters
+ * read as a grey slab, and a code fence forbids the bold and emoji that carry
+ * the actual meaning.
+ *
+ * Showing the enemy's known affinities is the point of the screen. Without
+ * them the player holds a codex full of hard-won knowledge with no way to act
+ * on it at the one moment it decides anything.
+ */
+export function combatEmbed(
+  state: CombatState,
+  depth: number,
+  discovered: Map<string, number>,
+  targetId: string | null,
+): Embed {
   const party = state.combatants.filter((c) => c.side === 'party');
   const husks = state.combatants.filter((c) => c.side === 'husks');
-  const self = combatant(state, WANDERER_ID);
   const species = echoSpecies(state.activeSpeciesId);
+  const manyStanding = husks.filter((h) => h.hp > 0).length > 1;
 
-  const husksBlock = husks
-    .map((h) => {
-      const veil = (h.veilRemaining ?? 0) > 0 ? ` ⛨${h.veilRemaining}` : '';
-      return combatantLine(h.name, h.hp, h.maxHp, h.downed) + veil;
-    })
-    .join('\n');
+  const huskLines = husks.map((h) => {
+    const aimed = h.id === targetId && manyStanding;
+    const down = h.downed ? ' · **DOWN**' : '';
+    const veil = (h.veilRemaining ?? 0) > 0 ? ` · veil ${h.veilRemaining}` : '';
+    const known = h.speciesId
+      ? knownAffinities(h.affinities, revealedFor(state, h.speciesId, discovered))
+      : '';
+    return `${aimed ? '🎯 ' : ''}**${h.name}**  ${bar(h.hp, h.maxHp)}  ${h.hp}/${h.maxHp}${down}${veil}\n${known}`;
+  });
 
-  const partyBlock = party
-    .map((c) => combatantLine(c.name, c.hp, c.maxHp, c.downed))
-    .join('\n');
+  const partyLines = party.map((c) => {
+    const focus = c.id === WANDERER_ID ? `  ·  Focus ${c.focus}/${c.maxFocus}` : '';
+    const down = c.downed ? ' · **DOWN**' : '';
+    return `**${c.name}**  ${bar(c.hp, c.maxHp)}  ${c.hp}/${c.maxHp}${down}${focus}`;
+  });
+
+  const description = [
+    '__**Against you**__',
+    huskLines.join('\n\n'),
+    '',
+    '__**Your side**__',
+    partyLines.join('\n'),
+    '',
+    `__**Summoned**__ · **${species.name}** · ${SUIT_LABEL[species.suit]}`,
+    ownAffinities(species.affinities),
+  ].join('\n');
 
   return {
     title: `Depth ${depth} · Round ${state.round}`,
+    description,
     color: state.secondWind ? COLORS.ember : COLORS.abyss,
-    fields: [
-      { name: 'Husks', value: `\`\`\`\n${husksBlock}\n\`\`\``, inline: false },
-      { name: 'Party', value: `\`\`\`\n${partyBlock}\n\`\`\``, inline: false },
-      {
-        name: 'Summoned',
-        value: `**${species.name}**  ·  Focus ${self?.focus ?? 0}/${self?.maxFocus ?? 0}\n${affinityLine(species.affinities)}`,
-        inline: false,
-      },
-      ...(state.log.length > 0
-        ? [{ name: 'Log', value: state.log.map((l) => `> ${l}`).join('\n'), inline: false }]
-        : []),
-    ],
+    fields:
+      state.log.length > 0
+        ? [
+            {
+              name: 'What happened',
+              value: state.log.map((l) => `> ${l}`).join('\n'),
+              inline: false,
+            },
+          ]
+        : [],
     footer: {
       text: state.secondWind
-        ? 'Second Wind - act again.'
-        : 'Hit a weakness to knock them down and act again.',
+        ? 'Second Wind — act again. A target already down will not grant another.'
+        : everyHuskDowned(husks)
+          ? 'All down. Onslaught hits every one of them, or Bind takes one home.'
+          : 'Choose a skill under Act. Match an element they are weak to.',
     },
   };
 }
@@ -348,7 +461,7 @@ export function combatComponents(
         {
           type: ComponentType.StringSelect,
           custom_id: runId('sk', run, turn),
-          placeholder: 'Act',
+          placeholder: 'Act — choose a skill to use',
           options,
         },
       ],
@@ -363,7 +476,7 @@ export function combatComponents(
         {
           type: ComponentType.StringSelect,
           custom_id: runId('sw', run, turn),
-          placeholder: 'Summon a different Echo (free)',
+          placeholder: 'Swap Echo — free, and you still act',
           options: swappable.map((row) => {
             const species = echoSpecies(row.species_id);
             return {
@@ -383,7 +496,9 @@ export function combatComponents(
       components: husks.slice(0, 5).map<ButtonComponent>((h) => ({
         type: ComponentType.Button,
         style: h.id === targetId ? ButtonStyle.Primary : ButtonStyle.Secondary,
-        label: `${h.name}${h.downed ? ' (down)' : ''}`.slice(0, 80),
+        // Prefixed because a bare enemy name on a button reads as "attack this",
+        // when pressing it only changes what the next skill will hit.
+        label: `Aim at ${h.name}${h.downed ? ' (down)' : ''}`.slice(0, 80),
         custom_id: runId('tg', run, turn, h.id),
       })),
     });
