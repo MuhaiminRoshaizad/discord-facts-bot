@@ -94,6 +94,16 @@ td.a{text-align:center;font-size:11.5px;font-weight:600;color:var(--muted)}
 footer{margin-top:56px;padding-top:18px;border-top:1px solid var(--line);
   color:var(--muted);font-size:12.5px}
 .hidden{display:none}
+
+/* Husk affinities are meant to be discovered in play, so they are blurred out
+   until the reader deliberately asks to see them. */
+.spoiler-table td.a{filter:blur(5px);user-select:none;transition:filter .15s}
+.spoilers-shown .spoiler-table td.a{filter:none;user-select:auto}
+.toggle{display:inline-flex;align-items:center;gap:8px;margin:10px 0 4px;
+  border:1px solid var(--line);background:var(--panel);color:var(--ink);
+  border-radius:9px;padding:8px 13px;font:inherit;font-size:13.5px;cursor:pointer}
+.toggle:hover{border-color:var(--amber);color:var(--amber)}
+.note{color:var(--muted);font-size:13px;margin:6px 0 0}
 `;
 
 const SCRIPT = `
@@ -106,6 +116,17 @@ document.querySelectorAll('input[data-filters]').forEach(function (input) {
     });
   });
 });
+
+var spoilerButton = document.getElementById('spoilers');
+if (spoilerButton) {
+  spoilerButton.addEventListener('click', function () {
+    var shown = document.body.classList.toggle('spoilers-shown');
+    spoilerButton.textContent = shown
+      ? 'Hide Husk weaknesses'
+      : 'Reveal Husk weaknesses (spoilers)';
+    spoilerButton.setAttribute('aria-pressed', String(shown));
+  });
+}
 `;
 
 function echoTable(): string {
@@ -124,6 +145,12 @@ function echoTable(): string {
   </tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
+/**
+ * Husk affinities are the one thing the game asks you to *find*, by hitting
+ * something and seeing what happens. Printing them here in plain sight would
+ * make that mechanic pointless, so they are hidden behind a toggle the reader
+ * has to reach for deliberately.
+ */
 function huskTable(): string {
   const rows = ALL_HUSK_SPECIES.map(
     (species) => `<tr>
@@ -136,7 +163,7 @@ function huskTable(): string {
     </tr>`,
   ).join('');
 
-  return `<div class="scroll"><table><thead><tr>
+  return `<div class="scroll"><table class="spoiler-table"><thead><tr>
     <th>Husk</th><th>Rank</th><th>Suit</th><th>HP</th>${elementHead}<th>Notes</th>
   </tr></thead><tbody>${rows}</tbody></table></div>`;
 }
@@ -238,6 +265,10 @@ const html = `<!doctype html>
 <div id="echo-table">${echoTable()}</div>
 
 <h2 id="husks">Husks</h2>
+<p class="note">Affinities are blurred on purpose. In play you learn them by attacking
+something and watching what happens — an element you have never tried against a Husk shows
+as <code>?</code> in your <code>/codex</code> until you do.</p>
+<button class="toggle" id="spoilers" type="button" aria-pressed="false">Reveal Husk weaknesses (spoilers)</button>
 <input class="search" data-filters="#husk-table" placeholder="Filter Husks by name, rank or suit">
 <div id="husk-table">${huskTable()}</div>
 

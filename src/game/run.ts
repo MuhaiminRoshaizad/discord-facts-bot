@@ -57,6 +57,15 @@ export interface RunState {
   ending: RunEnding;
   /** Lines shown for a non-combat step. */
   notice: string | null;
+  /**
+   * Everything learned this descent: Husk species id to a bitmask over
+   * ELEMENTS of what has been tried against it. Accumulated across every fight
+   * rather than read from the current one, or a ten-step run would only ever
+   * teach you what happened in the last of them.
+   */
+  struck: Record<string, number>;
+  /** Husk species met this descent, whether or not anything was tried. */
+  met: string[];
 }
 
 export const MAX_DEPTH = WARDEN_DEPTH;
@@ -93,6 +102,8 @@ export function beginRun(
     allies,
     ending: null,
     notice: null,
+    struck: {},
+    met: [],
   };
   return stepInto(state);
 }
@@ -130,6 +141,12 @@ export function stepInto(state: RunState): RunState {
     state.combat = advance(combat);
     state.targetId = living(state.combat, 'husks')[0]?.id ?? null;
     state.phase = 'combat';
+
+    // Meeting something is enough to earn a codex entry; what it is weak to
+    // still has to be found the hard way.
+    for (const husk of event.husks) {
+      if (!state.met.includes(husk.speciesId)) state.met.push(husk.speciesId);
+    }
 
     // An ally can finish a weak pack before the player ever acts.
     if (state.combat.outcome !== 'ongoing') return settleCombat(state);
@@ -170,6 +187,12 @@ export function settleCombat(state: RunState): RunState {
   if (self) {
     state.hp = self.hp;
     state.focus = self.focus;
+  }
+
+  // Fold this fight's findings into the run's, before the CombatState is
+  // replaced by the next encounter and takes its knowledge with it.
+  for (const [speciesId, mask] of Object.entries(combat.struck)) {
+    state.struck[speciesId] = (state.struck[speciesId] ?? 0) | mask;
   }
 
   if (combat.outcome === 'lost') {

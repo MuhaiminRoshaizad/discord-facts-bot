@@ -34,7 +34,6 @@ import {
 } from '../game/progression';
 import { beginRun } from '../game/run';
 import {
-  CODEX_TOTALS,
   contextFor,
   loadPlayer,
   noCharacter,
@@ -43,7 +42,9 @@ import {
 } from './shared';
 import {
   codexEmbed,
+  codexPageRow,
   COLORS,
+  type CodexPage,
   combatComponents,
   combatEmbed,
   drawComponents,
@@ -215,13 +216,24 @@ const codex: Handler = async (ctx) => {
   if (!loaded) return noCharacter();
 
   const option = ctx.interaction.data?.options?.find((o) => o.name === 'page');
-  const page = String(option?.value ?? 'husk').startsWith('e') ? 'echo' : 'husk';
+  const page = resolveCodexPage(String(option?.value ?? ''));
 
   const rows = await listDiscoveries(ctx.env.DB, ctx.userId);
   const discovered = new Map(rows.map((r) => [`${r.entry_type}:${r.entry_id}`, r.flags]));
 
-  return reply({ embeds: [codexEmbed(discovered, page, CODEX_TOTALS)] });
+  return reply({
+    embeds: [codexEmbed(discovered, page)],
+    components: [codexPageRow(page)],
+  });
 };
+
+/** Tolerant of whatever the player typed - `e`, `echoes`, `Echo`, nothing. */
+export function resolveCodexPage(raw: string): CodexPage {
+  const value = raw.trim().toLowerCase();
+  if (value.startsWith('e')) return 'echo';
+  if (value.startsWith('s')) return 'skill';
+  return 'husk';
+}
 
 // --- /leaderboard ---------------------------------------------------------
 

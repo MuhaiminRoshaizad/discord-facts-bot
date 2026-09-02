@@ -274,6 +274,59 @@ describe('negotiation', () => {
   });
 });
 
+describe('what a descent teaches you', () => {
+  it('records every Husk met, whether or not anything was tried on it', () => {
+    for (let seed = 0; seed < 60; seed++) {
+      const state = run(seed);
+      if (state.phase !== 'combat') continue;
+      for (const husk of state.event!.husks!) {
+        expect(state.met).toContain(husk.speciesId);
+      }
+      return;
+    }
+  });
+
+  // The bug this exists to catch: reading `struck` off the current CombatState
+  // meant a ten-step descent only ever taught you about the last fight.
+  it('accumulates findings across fights instead of keeping only the last', () => {
+    const state = run(2);
+    if (state.phase !== 'combat') return;
+
+    state.struck = { 'earlier-husk': 0b0000001 };
+    state.combat!.struck = { 'later-husk': 0b0000010 };
+    for (const husk of living(state.combat!, 'husks')) husk.hp = 0;
+    state.combat!.outcome = 'won';
+
+    const settled = settleCombat(state);
+    expect(settled.struck['earlier-husk']).toBe(0b0000001);
+    expect(settled.struck['later-husk']).toBe(0b0000010);
+  });
+
+  it('merges masks for a Husk met more than once', () => {
+    const state = run(2);
+    if (state.phase !== 'combat') return;
+
+    state.struck = { drifter: 0b0000001 };
+    state.combat!.struck = { drifter: 0b0000100 };
+    for (const husk of living(state.combat!, 'husks')) husk.hp = 0;
+    state.combat!.outcome = 'won';
+
+    expect(settleCombat(state).struck['drifter']).toBe(0b0000101);
+  });
+
+  it('keeps what it learned even on a defeat', () => {
+    const state = run(2);
+    if (state.phase !== 'combat') return;
+
+    state.combat!.struck = { drifter: 0b0000010 };
+    state.combat!.outcome = 'lost';
+
+    const settled = settleCombat(state);
+    expect(settled.ending).toBe('defeated');
+    expect(settled.struck['drifter']).toBe(0b0000010);
+  });
+});
+
 describe('retreat', () => {
   it('ends the run with everything kept', () => {
     const state = run(6);

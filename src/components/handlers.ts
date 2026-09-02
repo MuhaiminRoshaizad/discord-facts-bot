@@ -14,7 +14,7 @@ import {
   getEcho,
   getRun,
   listAllies,
-  listEchoes,
+  listDiscoveries,
   newId,
   recruitAlly,
   setAllyParty,
@@ -42,8 +42,10 @@ import {
   saveRun,
   type Ctx,
 } from '../commands/shared';
-import { renderRun } from '../commands/handlers';
+import { renderRun, resolveCodexPage } from '../commands/handlers';
 import {
+  codexEmbed,
+  codexPageRow,
   confirmRow,
   COLORS,
   echoDetailEmbed,
@@ -417,6 +419,21 @@ async function handleParty(ctx: Ctx): Promise<Response> {
   });
 }
 
+// --- /codex components ----------------------------------------------------
+
+async function handleCodex(ctx: Ctx, raw: string): Promise<Response> {
+  const [, , requested = ''] = raw.split('|');
+  const page = resolveCodexPage(requested);
+
+  const rows = await listDiscoveries(ctx.env.DB, ctx.userId);
+  const discovered = new Map(rows.map((r) => [`${r.entry_type}:${r.entry_id}`, r.flags]));
+
+  return updateMessage({
+    embeds: [codexEmbed(discovered, page)],
+    components: [codexPageRow(page)],
+  });
+}
+
 // --- routing --------------------------------------------------------------
 
 export async function handleComponent(interaction: Interaction, env: Env): Promise<Response> {
@@ -444,6 +461,8 @@ export async function handleComponent(interaction: Interaction, env: Env): Promi
       return handleWeaveSelect(ctx, raw);
     case 'p':
       return handleParty(ctx);
+    case 'c':
+      return handleCodex(ctx, raw);
     default:
       return ephemeral('Mooji does not recognise that.');
   }

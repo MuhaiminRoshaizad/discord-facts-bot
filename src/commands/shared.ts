@@ -26,8 +26,6 @@ import {
 } from '../db/queries';
 import { applyEchoXp, applyXp, echoCapacity, echoXpShare } from '../game/progression';
 import { keepsSpoils, type RunState } from '../game/run';
-import { ALL_ECHO_SPECIES } from '../game/content/echoes';
-import { ALL_HUSK_SPECIES } from '../game/content/husks';
 
 export interface Ctx {
   env: Env;
@@ -119,7 +117,9 @@ export async function finishRun(
   echoes: EchoRow[],
 ): Promise<Banked> {
   const pays = keepsSpoils(state);
-  const xp = pays ? state.pendingXp : state.pendingXp;
+  // XP is kept whatever happened - a bad run should still move you forward.
+  // Gold and anything bound are what a defeat actually costs.
+  const xp = state.pendingXp;
   const gold = pays ? state.pendingGold : 0;
 
   const levelled = applyXp(player.level, player.xp, xp);
@@ -175,11 +175,10 @@ export async function finishRun(
     ),
   );
 
-  // Codex: everything met this run, with the elements actually tried against
-  // each one folded into the reveal mask.
-  const struck = state.combat?.struck ?? {};
-  const met = new Set<string>([...Object.keys(struck)]);
-  for (const husk of state.event?.husks ?? []) met.add(husk.speciesId);
+  // Codex: everything met across the whole descent, with the elements actually
+  // tried against each one folded into the reveal mask.
+  const struck = state.struck ?? {};
+  const met = new Set<string>([...state.met, ...Object.keys(struck)]);
   for (const speciesId of met) {
     statements.push(
       discoverStatement(ctx.env.DB, ctx.userId, 'husk', speciesId, struck[speciesId] ?? 0, ctx.now),
@@ -209,7 +208,3 @@ export async function finishRun(
   };
 }
 
-export const CODEX_TOTALS = {
-  echoes: ALL_ECHO_SPECIES.length,
-  husks: ALL_HUSK_SPECIES.length,
-};

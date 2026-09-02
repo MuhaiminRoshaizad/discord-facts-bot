@@ -7,9 +7,9 @@
  */
 
 import { ELEMENT_EMOJI, ELEMENT_LABEL, AFFINITY_LABEL } from '../game/affinity';
-import { echoSpecies } from '../game/content/echoes';
-import { huskSpecies } from '../game/content/husks';
-import { skill as lookupSkill } from '../game/content/skills';
+import { ALL_ECHO_SPECIES, echoSpecies } from '../game/content/echoes';
+import { ALL_HUSK_SPECIES } from '../game/content/husks';
+import { ALL_SKILLS, skill as lookupSkill } from '../game/content/skills';
 import { SUIT_LABEL } from '../game/content/suits';
 import {
   combatant,
@@ -544,38 +544,102 @@ export function runEndEmbed(state: RunState, banked: { xp: number; gold: number;
 
 // --- codex ----------------------------------------------------------------
 
-export function codexEmbed(
-  discovered: Map<string, number>,
-  page: 'echo' | 'husk',
-  totals: { echoes: number; husks: number },
-): Embed {
-  const entries =
-    page === 'echo'
-      ? [...discovered.keys()].filter((k) => k.startsWith('echo:'))
-      : [...discovered.keys()].filter((k) => k.startsWith('husk:'));
+export type CodexPage = 'husk' | 'echo' | 'skill';
 
-  const lines = entries.slice(0, 40).map((key) => {
-    const id = key.slice(key.indexOf(':') + 1);
-    const flags = discovered.get(key) ?? 0;
-    if (page === 'echo') {
-      const species = echoSpecies(id);
+/**
+ * The reference, and the collection meta-game in one.
+ *
+ * Every entry is listed, including ones never met - the shape of what is
+ * missing is half the appeal. What is *withheld* is the specific knowledge:
+ * a Husk you have not met shows as `???`, and one you have shows only the
+ * affinities you have actually tested. There is no way to look a weakness up;
+ * you find it by hitting the thing.
+ *
+ * Skills are not withheld. Knowing what Cinder costs is reference, not a
+ * spoiler, and hiding it would only make the game harder to read.
+ */
+export function codexEmbed(discovered: Map<string, number>, page: CodexPage): Embed {
+  if (page === 'skill') {
+    const byElement = ELEMENTS.map((element) => {
+      const entries = ALL_SKILLS.filter((s) => s.element === element);
+      if (entries.length === 0) return null;
+      return {
+        name: `${ELEMENT_EMOJI[element]} ${ELEMENT_LABEL[element]}`,
+        value: entries
+          .map((s) => {
+            const effect =
+              s.kind === 'damage'
+                ? `${s.power} power${s.aoe ? ', all' : ''}`
+                : s.kind === 'heal'
+                  ? `${s.power} healing${s.party ? ', party' : ''}`
+                  : `${s.stages > 0 ? '+' : ''}${s.stages} ${s.stat.toUpperCase()}`;
+            return `**${s.name}** · ${s.cost === 0 ? 'free' : `${s.cost} Focus`} · ${effect}\n${s.description}`;
+          })
+          .join('\n')
+          .slice(0, 1024),
+        inline: false,
+      };
+    }).filter((field): field is NonNullable<typeof field> => field !== null);
+
+    return {
+      title: 'Codex · Skills',
+      description: `${ALL_SKILLS.length} skills. Every Echo learns its own as it levels.`,
+      color: COLORS.blight,
+      fields: byElement.slice(0, 25),
+      footer: { text: 'Damage is scaled by ATK against the target DEF, then by affinity.' },
+    };
+  }
+
+  if (page === 'echo') {
+    const lines = ALL_ECHO_SPECIES.map((species) => {
+      const seen = discovered.has(`echo:${species.id}`);
+      if (!seen) return `\`???\` · ${SUIT_LABEL[species.suit]} · ${stars(species.rarity)}`;
       return `**${species.name}** · ${SUIT_LABEL[species.suit]} · ${stars(species.rarity)}\n${affinityLine(species.affinities)}`;
-    }
-    const species = huskSpecies(id);
-    return `**${species.name}** · ${species.rank}\n${affinityLine(species.affinities, flags)}`;
+    });
+
+    const found = ALL_ECHO_SPECIES.filter((s) => discovered.has(`echo:${s.id}`)).length;
+    return {
+      title: 'Codex · Echoes',
+      description: lines.join('\n').slice(0, 4000),
+      color: COLORS.tide,
+      footer: {
+        text: `${found} of ${ALL_ECHO_SPECIES.length} bound · an Echo you carry shows everything`,
+      },
+    };
+  }
+
+  const lines = ALL_HUSK_SPECIES.map((species) => {
+    const flags = discovered.get(`husk:${species.id}`);
+    if (flags === undefined) return `\`???\` · ${species.rank}`;
+    return `**${species.name}** · ${species.rank} · ${SUIT_LABEL[species.suit]}\n${affinityLine(species.affinities, flags)}`;
   });
 
-  const total = page === 'echo' ? totals.echoes : totals.husks;
-
+  const found = ALL_HUSK_SPECIES.filter((s) => discovered.has(`husk:${s.id}`)).length;
   return {
-    title: page === 'echo' ? 'Codex · Echoes' : 'Codex · Husks',
-    description:
-      lines.join('\n\n') ||
-      'Nothing recorded yet. Everything you meet writes itself in here.',
+    title: 'Codex · Husks',
+    description: lines.join('\n').slice(0, 4000),
     color: COLORS.blight,
     footer: {
-      text: `${entries.length} of ${total} recorded · an affinity shows only once you have struck it`,
+      text: `${found} of ${ALL_HUSK_SPECIES.length} met · ? means untested — hit it with that element to find out`,
     },
+  };
+}
+
+export function codexPageRow(current: CodexPage): ActionRow {
+  const pages: { id: CodexPage; label: string }[] = [
+    { id: 'husk', label: 'Husks' },
+    { id: 'echo', label: 'Echoes' },
+    { id: 'skill', label: 'Skills' },
+  ];
+
+  return {
+    type: ComponentType.ActionRow,
+    components: pages.map<ButtonComponent>((page) => ({
+      type: ComponentType.Button,
+      style: page.id === current ? ButtonStyle.Primary : ButtonStyle.Secondary,
+      label: page.label,
+      custom_id: `c|page|${page.id}`,
+    })),
   };
 }
 
