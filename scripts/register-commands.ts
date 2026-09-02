@@ -3,21 +3,38 @@
  *
  * Run once after changing src/commands/definitions.ts:
  *
- *   DISCORD_APPLICATION_ID=... DISCORD_BOT_TOKEN=... npm run register
+ *   npm run register
  *
- * Set DISCORD_TEST_GUILD_ID as well while developing. Guild commands appear
+ * Credentials are read from .dev.vars - the same gitignored file wrangler dev
+ * uses - so there is one place to put them and no shell-specific way to pass
+ * them. PowerShell has no inline environment-variable prefix, so telling
+ * people to write `VAR=x npm run register` simply does not work on Windows.
+ *
+ * Set DISCORD_TEST_GUILD_ID there too while developing. Guild commands appear
  * immediately; global ones take up to an hour to propagate, which is a long
  * time to spend wondering whether the deploy worked.
  */
 
 import { COMMANDS } from '../src/commands/definitions.ts';
 
+try {
+  process.loadEnvFile('.dev.vars');
+} catch {
+  // Absent is fine - the values may already be in the environment.
+}
+
 const applicationId = process.env['DISCORD_APPLICATION_ID'];
 const token = process.env['DISCORD_BOT_TOKEN'];
 const guildId = process.env['DISCORD_TEST_GUILD_ID'];
 
 if (!applicationId || !token) {
-  console.error('DISCORD_APPLICATION_ID and DISCORD_BOT_TOKEN must both be set.');
+  console.error(
+    'Missing credentials. Create a .dev.vars file in the project root with:\n' +
+      '  DISCORD_APPLICATION_ID=...\n' +
+      '  DISCORD_BOT_TOKEN=...\n' +
+      '  DISCORD_TEST_GUILD_ID=...   (optional, but do use it while developing)\n' +
+      'It is gitignored. Both values come from the Discord developer portal.',
+  );
   process.exit(1);
 }
 
