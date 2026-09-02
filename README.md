@@ -173,9 +173,10 @@ npx wrangler secret put DISCORD_PUBLIC_KEY
 npx wrangler secret put DISCORD_APPLICATION_ID
 npx wrangler secret put DISCORD_BOT_TOKEN
 
-# 3. Put the same three values in .dev.vars (gitignored) for local use, then
-#    register the commands. Add DISCORD_TEST_GUILD_ID while developing -
-#    guild commands appear instantly, global ones take up to an hour.
+# 3. Local credentials, then register the commands. Add DISCORD_TEST_GUILD_ID
+#    while developing - guild commands appear instantly, global ones take up
+#    to an hour.
+cp .env.example .env      # then fill it in
 npm run register
 
 # 4. Go
@@ -183,8 +184,11 @@ npm run dev               # local, needs a tunnel for Discord to reach it
 npm run deploy            # builds the wiki, then deploys
 ```
 
-`.dev.vars` is a plain `KEY=value` file in the project root, read by both
-`wrangler dev` and `npm run register`. It is gitignored; never commit it.
+`.env` is read by both `wrangler dev` and `npm run register`. It is gitignored;
+`.env.example` is the committed template and documents where each value comes
+from. Do not also create a `.dev.vars` - wrangler ignores `.env` when one
+exists, which is a quiet way to run as one application and register against
+another.
 
 Finally, set the **Interactions Endpoint URL** in the Discord developer portal
 to your Worker's URL. Discord validates it by sending a deliberately invalid

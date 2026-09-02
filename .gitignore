@@ -1,5 +1,8 @@
-# Secrets - never commit these
+# Secrets - never commit these.
+# .env.example is the committed template and is deliberately not ignored.
 .env
+.env.*
+!.env.example
 .dev.vars
 
 # Node
