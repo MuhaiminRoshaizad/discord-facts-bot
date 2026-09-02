@@ -191,9 +191,19 @@ exists, which is a quiet way to run as one application and register against
 another.
 
 Finally, set the **Interactions Endpoint URL** in the Discord developer portal
-to your Worker's URL. Discord validates it by sending a deliberately invalid
-signature and requiring a `401` — so if it refuses the URL, the problem is
-almost always `DISCORD_PUBLIC_KEY`.
+to your Worker's URL **with `/interactions` on the end**:
+
+```
+https://<your-worker>.workers.dev/interactions
+```
+
+Not the bare root. The static compendium is served from `/` by Cloudflare's
+asset layer, which answers before the Worker and returns `405` to a POST —
+Discord would never reach the handler.
+
+Discord validates the URL by sending a deliberately invalid signature and
+requiring a `401`. If it refuses to save, the cause is almost always
+`DISCORD_PUBLIC_KEY`.
 
 ### Checks
 

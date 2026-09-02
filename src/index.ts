@@ -16,8 +16,10 @@ import { postDigest } from './digest';
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    // Discord posts to /interactions. The compendium is served from the asset
+    // layer at /, which answers before the Worker and would 405 a POST there.
     if (request.method === 'GET') {
-      return new Response('Mooji is awake.', {
+      return new Response('Mooji is awake. The compendium is at /.', {
         headers: { 'content-type': 'text/plain; charset=utf-8' },
       });
     }
