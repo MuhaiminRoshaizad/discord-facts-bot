@@ -10,6 +10,8 @@ import type { Env } from './env';
 import { isValidSignature } from './discord/verify';
 import { InteractionType, type Interaction } from './discord/types';
 import { ephemeral, pong } from './discord/respond';
+import { handleCommand } from './commands/handlers';
+import { handleComponent } from './components/handlers';
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -43,16 +45,27 @@ export default {
       return new Response('malformed interaction payload', { status: 400 });
     }
 
-    switch (interaction.type) {
-      case InteractionType.Ping:
-        return pong();
+    try {
+      switch (interaction.type) {
+        case InteractionType.Ping:
+          return pong();
 
-      case InteractionType.ApplicationCommand:
-      case InteractionType.MessageComponent:
-        return ephemeral('Mooji is being rebuilt. This is not wired up yet.');
+        case InteractionType.ApplicationCommand:
+          return await handleCommand(interaction, env);
 
-      default:
-        return new Response('unsupported interaction type', { status: 400 });
+        case InteractionType.MessageComponent:
+          return await handleComponent(interaction, env);
+
+        default:
+          return new Response('unsupported interaction type', { status: 400 });
+      }
+    } catch (error) {
+      // Discord shows the user a bare failure if we return an error status, so
+      // an ephemeral apology reads better and keeps the internals off screen.
+      console.error('interaction failed', error);
+      return ephemeral(
+        'Something went wrong at the Threshold. Mooji has made a note of it; try again shortly.',
+      );
     }
   },
 
