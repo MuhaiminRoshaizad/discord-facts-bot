@@ -11,27 +11,16 @@ connection, and no bill.
 
 ## Playing
 
-**[Add Mooji to your server](https://discord.com/oauth2/authorize?client_id=1467015114032152586&permissions=277025508352&integration_type=0&scope=bot%20applications.commands)**
-
-Then run `/awaken`. Mooji hands you one Echo and gets out of the way.
+**[Add Mooji to your server](https://discord.com/oauth2/authorize?client_id=1467015114032152586&permissions=277025508352&integration_type=0&scope=bot%20applications.commands)**,
+then run `/awaken`. Mooji hands you one Echo and gets out of the way.
 
 ### The one rule that matters
 
 Your summoned Echo lends you its **skills** and its **weaknesses** both.
 
 Swapping to Ember to exploit something's Ember weakness also hands that thing
-your new Frost weakness. Swapping is free and does not cost your turn — but it
+your new Frost weakness. Swapping is free and does not cost your turn - but it
 is never without cost, and that is the whole game.
-
-### How a fight works
-
-- Hit a **weakness** (or land a critical) and the target is **Downed** and you
-  get a **Second Wind** — another turn, immediately.
-- A target that is *already* down grants nothing, so chains end on their own.
-- Down **every** Husk at once and you may spend the turn on an **Onslaught**,
-  the whole party at once — or on a **Bind**, taking one home instead of
-  killing it.
-- Win by Onslaught and you get **The Draw**: three face-down cards, pick one.
 
 ### Commands
 
@@ -42,55 +31,26 @@ is never without cost, and that is the whole game.
 | `/echoes` | Summon, inspect, or release an Echo. |
 | `/weave` | Consume two Echoes to make a stronger one. |
 | `/party` | Choose which Allies come along, and how they fight. |
-| `/codex` | Everything you have met, and what you learned about it. |
+| `/codex` | Husks, Echoes and skills - and what you have learned about them. |
 | `/profile` | Level, Resolve, gold, standing. |
 | `/leaderboard` | How the server is doing. |
 | `/setchannel` | *(admin)* Where the daily digest posts. Run again to stop it. |
 
-### Descending
+**[docs/PLAYING.md](docs/PLAYING.md)** covers the rest: Second Wind and how
+chains terminate, Onslaught and The Draw, binding odds, Wardens and the Veil,
+Resolve, weaving, Allies, the codex, the XP curve, and some actual advice.
 
-A Rift is ten steps deep. Each step rolls: packs of Husks, an elite, a cache, a
-place to rest, something willing to negotiate, or — rarely — something gilded
-that will not stay to fight. Depth ten is always a **Warden**, whose weaknesses
-are sealed behind a **Veil** until enough attacks connect.
+The bot will always show as **offline** in Discord. Presence requires a gateway
+connection, which is exactly the always-on process this design does without. It
+answers commands instantly regardless.
 
-**HP and Focus do not restore between steps.** Going deeper is a decision.
+### Documentation
 
-- `/retreat` (the button) banks everything you are carrying.
-- Falling costs you the unbanked **gold** only. XP and anything already bound
-  are yours.
-- A descent costs **1 Resolve**, of 5. One returns every three hours.
-
-### Echoes
-
-You may carry `4 + floor(level / 2)`, to a hard cap of twelve. At capacity you
-must release or weave before binding anything new — the pressure is deliberate.
-
-Four ways to get them: **Bind** one mid-fight, **The Draw**, a **negotiation**
-in a Rift, or **weaving** two together. Binding and drawing supply the raw
-material; weaving is how anything genuinely strong is made.
-
-### The codex
-
-`/codex` is the reference and the collection log at once, in three pages:
-
-- **Husks** — every Husk in the game is listed, but one you have never met
-  reads `???`, and one you have met shows only the affinities you have
-  actually **tested**. An element you have not tried against it is a `?`. There
-  is no way to look a weakness up: you find it by hitting the thing and seeing
-  what happens. A resisted or nulled attempt teaches you just as much as a
-  clean hit.
-- **Echoes** — the same, revealed as you bind them.
-- **Skills** — everything, always. What Cinder costs and what it does is
-  reference, not a spoiler, and hiding it would only make the game harder to
-  read.
-
-The Worker also serves a **public compendium** at its own URL, generated from
-the same files the bot runs on so it can never fall out of date. Husk
-affinities there are blurred behind a deliberate spoiler toggle, for the same
-reason.
-
----
+| | |
+|---|---|
+| **[docs/PLAYING.md](docs/PLAYING.md)** | Every rule, and why it is that way. |
+| **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** | Infrastructure, layering, data model, and the reasoning behind each awkward-looking decision. |
+| The compendium | Every Echo, Husk and skill, served from the Worker's own URL. |
 
 ## Where the ideas come from
 
@@ -128,17 +88,15 @@ Keep it that way. If you contribute content, invent it — do not port it.
 
 TypeScript on **Cloudflare Workers**, with **D1** for storage. Discord reaches
 the bot through an **HTTP Interactions endpoint** rather than a gateway
-WebSocket, which is why no process needs to stay alive and why the free tier is
-enough.
+WebSocket, which is why no process stays alive and why the free tier is enough.
 
-That imposes two constraints worth knowing before you change anything:
+Two constraints follow, and anything you add has to live inside them: **3
+seconds** to answer Discord, **10 ms of CPU** per request, and no state between
+requests - a whole descent lives in one `runs.state_json` column.
 
-- **3 seconds** to answer Discord, and **10 ms of CPU** per request on the free
-  plan. I/O does not count toward CPU time; heavy computation does.
-- No state between requests. A whole descent lives in one `runs.state_json`
-  column and every button press is a read-modify-write.
-
-### Layout
+**[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** has the request lifecycle, the
+layering, the data model, and the reasoning behind each decision that looks odd
+until you know why.
 
 ```
 src/
@@ -151,12 +109,13 @@ src/
   db/queries.ts     every SQL statement in the project
   render/embeds.ts  everything the player sees
 wiki/build.ts       generates the compendium from game/content
+docs/               PLAYING.md and ARCHITECTURE.md
 migrations/         D1 schema
 ```
 
 **`src/game/` must stay free of I/O and Discord types.** Combat, affinity,
 weaving and progression are pure functions, which is why they can be tested
-properly — and that is where the real bugs live.
+properly - and that is where the real bugs live.
 
 ### Running it
 
@@ -222,6 +181,10 @@ player.
 
 - Conventional Commits, no emoji, no `Co-Authored-By` trailers.
 - Keep `src/game/` pure.
+- New Echoes, Husks and skills are data in `src/game/content/`. The catalogue
+  tests catch a dangling skill id or a creature with no weakness before a
+  player does - see *Adding content* in
+  [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 - Every number in the game is a starting value for tuning. Balance comes from
   play, not from argument.
 
