@@ -1,0 +1,24 @@
+# Cloudflare Workers configuration.
+#
+# Secrets are NOT set here. Provide them with `wrangler secret put`:
+#   DISCORD_PUBLIC_KEY      verifies interaction signatures
+#   DISCORD_APPLICATION_ID  used when registering commands
+#   DISCORD_BOT_TOKEN       authenticates REST calls
+
+name = "mooji"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+
+# Daily at 16:00 UTC, which is 00:00 Malaysia time. Rolls the day's Rift
+# modifier and posts the leaderboard digest. Resolve regeneration is computed
+# lazily on read and deliberately does not depend on this firing.
+[triggers]
+crons = ["0 16 * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "mooji"
+database_id = "REPLACE_WITH_ID_FROM_wrangler_d1_create_mooji"
+
+[observability]
+enabled = true

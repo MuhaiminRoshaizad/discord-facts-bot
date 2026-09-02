@@ -1,18 +1,22 @@
-# Environment variables (keep token secret!)
+# Secrets - never commit these
 .env
+.dev.vars
 
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-venv/
-env/
-ENV/
+# Node
+node_modules/
+npm-debug.log*
+yarn-error.log*
 
-# VS Code
+# Cloudflare
+.wrangler/
+dist/
+
+# Generated wiki output
+public/
+
+# Editors
 .vscode/
+.idea/
 
 # OS
 .DS_Store
