@@ -19,6 +19,7 @@ import { skill as lookupSkill, STRIKE } from './content/skills';
 import { createRng, type Rng } from './rng';
 import { baseStats, maxFocus, maxHp } from './progression';
 import {
+  ELEMENTS,
   MAX_STAGES,
   MODIFIER_TURNS,
   STAGE_STEP,
@@ -86,6 +87,12 @@ export interface CombatState {
   boundSpeciesId: string | null;
   /** True when the win came by Onslaught, which is what unlocks The Draw. */
   wonByOnslaught: boolean;
+  /**
+   * Husk species id to a bitmask over ELEMENTS, recording which elements the
+   * party actually tried against it. The codex reveals an affinity only once
+   * it has been struck, so this is what turns a fight into knowledge.
+   */
+  struck: Record<string, number>;
 }
 
 const LOG_LIMIT = 6;
@@ -213,6 +220,7 @@ export function startEncounter(seed: EncounterSeed): CombatState {
     fleeAfterRound: seed.fleeAfterRound ?? null,
     boundSpeciesId: null,
     wonByOnslaught: false,
+    struck: {},
   };
 
   beginRound(state);
@@ -411,6 +419,13 @@ function applyDamage(
 ): HitReport {
   const veiled = (target.veilRemaining ?? 0) > 0;
   const outcome = resolveAffinity(target.affinities, skill.element, veiled);
+
+  // Trying an element against a Husk is how the codex learns its table, so it
+  // is recorded whether the attack landed well or badly.
+  if (attacker.side === 'party' && target.side === 'husks' && target.speciesId) {
+    const bit = 1 << ELEMENTS.indexOf(skill.element);
+    state.struck[target.speciesId] = (state.struck[target.speciesId] ?? 0) | bit;
+  }
 
   const power = skill.kind === 'damage' ? skill.power : 0;
   const atk = effectiveStat(attacker, 'atk');

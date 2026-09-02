@@ -15,7 +15,7 @@ import {
   type CombatState,
 } from '../src/game/combat';
 import { ally } from '../src/game/content/allies';
-import type { AffinityTable } from '../src/game/types';
+import { ELEMENTS, type AffinityTable } from '../src/game/types';
 
 const wandererSeed = {
   name: 'Wanderer',
@@ -373,6 +373,36 @@ describe('the Veil', () => {
     if (!first.ok) throw new Error('rejected');
     expect(first.state.secondWind).toBe(false);
     expect(combatant(first.state, 'h:0')!.veilRemaining).toBe(2);
+  });
+});
+
+describe('recording what was struck', () => {
+  it('remembers the element tried, so the codex can reveal that affinity', () => {
+    const state = encounter();
+    const result = takeAction(state, { kind: 'skill', skillId: 'cinder', targetId: 'h:0' });
+    if (!result.ok) throw new Error('rejected');
+
+    const emberBit = 1 << ELEMENTS.indexOf('ember');
+    expect(result.state.struck['cinderhusk']! & emberBit).toBe(emberBit);
+  });
+
+  // A nulled or resisted attempt still teaches you something.
+  it('records an element even when the attack achieves nothing', () => {
+    const state = encounter();
+    setAffinities(state, 'h:0', { ember: 'null' });
+    const result = takeAction(state, { kind: 'skill', skillId: 'cinder', targetId: 'h:0' });
+    if (!result.ok) throw new Error('rejected');
+    expect(result.state.struck['cinderhusk']).toBeGreaterThan(0);
+  });
+
+  it('starts empty and records nothing the party has not tried', () => {
+    const state = encounter();
+    expect(state.struck).toEqual({});
+    const result = takeAction(state, { kind: 'skill', skillId: 'cinder', targetId: 'h:0' });
+    if (!result.ok) throw new Error('rejected');
+
+    const frostBit = 1 << ELEMENTS.indexOf('frost');
+    expect(result.state.struck['cinderhusk']! & frostBit).toBe(0);
   });
 });
 
