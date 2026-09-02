@@ -12,6 +12,7 @@ import { InteractionType, type Interaction } from './discord/types';
 import { ephemeral, pong } from './discord/respond';
 import { handleCommand } from './commands/handlers';
 import { handleComponent } from './components/handlers';
+import { postDigest } from './digest';
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -69,8 +70,9 @@ export default {
     }
   },
 
-  async scheduled(): Promise<void> {
-    // The daily digest arrives with the leaderboard. wrangler.toml already
-    // declares the trigger, so this handler has to exist for deploys to pass.
+  async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    // waitUntil so a slow guild cannot cut the run short partway through the
+    // list; failures are handled per guild inside postDigest.
+    ctx.waitUntil(postDigest(env, Math.floor(Date.now() / 1000)));
   },
 } satisfies ExportedHandler<Env>;
