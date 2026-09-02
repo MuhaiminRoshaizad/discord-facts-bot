@@ -56,19 +56,49 @@ export type AllyRole = (typeof ALLY_ROLES)[number];
 /** What a skill does when it resolves. */
 export type SkillKind = 'damage' | 'heal' | 'buff' | 'debuff';
 
-export interface Skill {
+/** The stats a buff or debuff can shift. */
+export type ModifiableStat = 'atk' | 'def' | 'spd';
+
+interface SkillBase {
   id: string;
   name: string;
-  kind: SkillKind;
   element: Element;
-  /** Focus cost. Strikes are free. */
+  /** Focus cost. A Strike is free. */
   cost: number;
-  /** Damage or healing scalar. Ignored by buffs and debuffs. */
+  description: string;
+}
+
+export interface DamageSkill extends SkillBase {
+  kind: 'damage';
   power: number;
   /** Hits every enemy rather than one. */
   aoe?: boolean;
-  description: string;
 }
+
+export interface HealSkill extends SkillBase {
+  kind: 'heal';
+  power: number;
+  /** Heals the whole party rather than one member. */
+  party?: boolean;
+}
+
+export interface ModifierSkill extends SkillBase {
+  kind: 'buff' | 'debuff';
+  stat: ModifiableStat;
+  /** Signed stages. Positive raises the stat, negative lowers it. */
+  stages: number;
+  /** Applies to every member of the affected side. */
+  spread?: boolean;
+}
+
+export type Skill = DamageSkill | HealSkill | ModifierSkill;
+
+/** Each stage shifts a stat by this fraction, and stages clamp to +/-2. */
+export const STAGE_STEP = 0.25;
+export const MAX_STAGES = 2;
+
+/** How many of the acting side's turns a buff or debuff survives. */
+export const MODIFIER_TURNS = 3;
 
 /** Stat modifiers an Echo contributes to its wielder. */
 export interface StatBlock {
