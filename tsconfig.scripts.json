@@ -1,0 +1,11 @@
+{
+  // Scripts run under Node but import from src/, which is written against the
+  // Workers runtime - so both type sets are needed here. The main tsconfig
+  // deliberately omits Node's, so Worker code cannot reach for Buffer and
+  // still compile.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node", "@cloudflare/workers-types"]
+  },
+  "include": ["scripts/**/*.ts", "wiki/**/*.ts"]
+}

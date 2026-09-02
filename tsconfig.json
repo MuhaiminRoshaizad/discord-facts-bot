@@ -19,5 +19,8 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src/**/*.ts", "test/**/*.ts", "scripts/**/*.ts", "wiki/**/*.ts"]
+  // Scripts and the wiki builder run under Node, not the Workers runtime, and
+  // are checked separately by tsconfig.scripts.json. Admitting Node's globals
+  // here would let Worker code reference Buffer and still compile.
+  "include": ["src/**/*.ts", "test/**/*.ts"]
 }
