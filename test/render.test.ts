@@ -6,7 +6,9 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { bar, knownAffinities, ownAffinities } from '../src/render/embeds';
+import { bar, cardLabel, knownAffinities, ownAffinities } from '../src/render/embeds';
+import { dealDraw } from '../src/game/draw';
+import { createRng } from '../src/game/rng';
 import { ELEMENTS, type AffinityTable } from '../src/game/types';
 
 const FULL = (1 << ELEMENTS.length) - 1;
@@ -100,5 +102,26 @@ describe('ownAffinities', () => {
 
   it('says something useful when nothing stands out', () => {
     expect(ownAffinities({}).length).toBeGreaterThan(0);
+  });
+});
+
+describe('The Draw, face up', () => {
+  // Three identical face-down buttons is a coin flip wearing a hat. The whole
+  // point of showing the faces is that there is something to reason about.
+  it('names every card it is offering', () => {
+    expect(cardLabel({ kind: 'gold', amount: 60 })).toContain('60');
+    expect(cardLabel({ kind: 'xp', amount: 120 })).toContain('120');
+    expect(cardLabel({ kind: 'focus', amount: 25 })).toContain('25');
+    expect(cardLabel({ kind: 'echo', speciesId: 'lumen', name: 'Lumen' })).toBe('Lumen');
+  });
+
+  it('fits every card on a Discord button', () => {
+    const rng = createRng(9);
+    for (let i = 0; i < 200; i++) {
+      for (const card of dealDraw(rng.int(0, 9), rng)) {
+        expect(cardLabel(card).length).toBeGreaterThan(0);
+        expect(cardLabel(card).length).toBeLessThanOrEqual(80);
+      }
+    }
   });
 });

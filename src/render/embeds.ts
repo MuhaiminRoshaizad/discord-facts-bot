@@ -595,13 +595,58 @@ export function eventComponents(state: RunState, run: string, turn: number): Act
   return [{ type: ComponentType.ActionRow, components: buttons }];
 }
 
+/** A card's face, short enough for a button. */
+export function cardLabel(card: DrawCard): string {
+  switch (card.kind) {
+    case 'echo':
+      return card.name;
+    case 'gold':
+      return `${card.amount} gold`;
+    case 'xp':
+      return `${card.amount} xp`;
+    case 'focus':
+      return `${card.amount} Focus`;
+  }
+}
+
+function cardEmoji(card: DrawCard): string {
+  switch (card.kind) {
+    case 'echo':
+      return '🥚';
+    case 'gold':
+      return '🪙';
+    case 'xp':
+      return '✨';
+    case 'focus':
+      return '🔷';
+  }
+}
+
+/** A fuller line for the embed, where there is room to say what a card is. */
+function cardLine(card: DrawCard): string {
+  if (card.kind !== 'echo') return `${cardEmoji(card)} **${cardLabel(card)}**`;
+  const species = echoSpecies(card.speciesId);
+  return `${cardEmoji(card)} **${species.name}** · ${SUIT_LABEL[species.suit]} · ${stars(species.rarity)}\n*${species.lore}*`;
+}
+
+/**
+ * The Draw, face up.
+ *
+ * Three identical face-down buttons is a coin flip wearing a hat - there is
+ * nothing to reason about, so it is not a decision. Showing the faces turns it
+ * into one: gold now against an Echo you will still have in a week.
+ */
 export function drawEmbed(state: RunState): Embed {
+  const cards = state.draw ?? [];
   return {
     title: 'The Draw',
-    description:
-      'Three cards, face down. The Onslaught earned them; only one comes with you.',
+    description: [
+      'The Onslaught earned these. Only one comes with you.',
+      '',
+      ...cards.map((card, index) => `**${index + 1}.**  ${cardLine(card)}`),
+    ].join('\n'),
     color: COLORS.ember,
-    footer: { text: `Depth ${state.depth}` },
+    footer: { text: `Depth ${state.depth} · the other two are lost` },
   };
 }
 
@@ -609,10 +654,12 @@ export function drawComponents(cards: DrawCard[], run: string, turn: number): Ac
   return [
     {
       type: ComponentType.ActionRow,
-      components: cards.map<ButtonComponent>((_card, index) => ({
+      components: cards.map<ButtonComponent>((card, index) => ({
         type: ComponentType.Button,
-        style: ButtonStyle.Secondary,
-        label: `Card ${index + 1}`,
+        // An Echo is the prize worth having, so it is the one that stands out.
+        style: card.kind === 'echo' ? ButtonStyle.Success : ButtonStyle.Secondary,
+        label: cardLabel(card).slice(0, 80),
+        emoji: { name: cardEmoji(card) },
         custom_id: runId('dr', run, turn, `${index}`),
       })),
     },
