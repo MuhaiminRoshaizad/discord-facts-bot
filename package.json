@@ -13,7 +13,8 @@
     "register": "tsx scripts/register-commands.ts",
     "db:local": "wrangler d1 execute mooji --local --file=./migrations/0001_init.sql",
     "db:remote": "wrangler d1 execute mooji --remote --file=./migrations/0001_init.sql",
-    "wiki": "tsx wiki/build.ts"
+    "wiki": "tsx wiki/build.ts",
+    "sim": "tsx scripts/simulate.ts"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260902.1",
