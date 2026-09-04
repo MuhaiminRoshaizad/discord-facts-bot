@@ -34,12 +34,18 @@ export function echoCapacity(level: number): number {
   return Math.min(ECHO_CAPACITY_CAP, 4 + Math.floor(Math.max(1, level) / 2));
 }
 
+/**
+ * Health has to outrun a single skill by a comfortable margin, or a fight is
+ * decided by whoever moved first. At 40 a level-one Wanderer died to one
+ * blow from a level-one Husk; simulation wanted roughly three times the
+ * biggest hit it could take.
+ */
 export function maxHp(level: number): number {
-  return 40 + 8 * (Math.max(1, level) - 1);
+  return 85 + 12 * (Math.max(1, level) - 1);
 }
 
 export function maxFocus(level: number): number {
-  return 20 + 4 * (Math.max(1, level) - 1);
+  return 30 + 6 * (Math.max(1, level) - 1);
 }
 
 /**

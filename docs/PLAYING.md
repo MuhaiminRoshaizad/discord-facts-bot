@@ -84,6 +84,13 @@ On your turn you may:
   sticks until you change it.
 - **Retreat** — leave, keeping everything.
 
+### You cannot be killed from full health
+
+Any single blow that would kill something at full health leaves it on 1
+instead. It applies to Husks as much as to you, it cannot chain — the survivor
+is no longer at full health — and it exists because without it a fight was
+decided by who moved first rather than by anything either side chose.
+
 ### Second Wind
 
 Hit a weakness, or land a critical, and two things happen: the target is
@@ -149,16 +156,21 @@ you are — trash thins out, elites and rare things thicken:
 | What | Roughly |
 |---|---|
 | A pack of Lesser Husks (1–3) | common, less so deeper |
-| A Greater Husk | uncommon, more so deeper |
+| A Greater Husk | from depth 3, and never before level 4 |
 | A Cache — gold, no fight | occasional |
 | A Wanderer's Rest — Focus back | occasional |
 | A negotiation — an Echo for gold, no fight | rare |
-| A Rare Husk — rich, and **flees after 3 rounds** | rare |
+| A Rare Husk — rich, and **flees after 3 rounds** | from depth 4, and never before level 6 |
 | The Warden | depth 10, always |
 
-**HP and Focus do not restore between steps.** This is the point of the whole
-structure. Going deeper is a decision made with what you have left, not a
-formality.
+**HP and Focus do not restore between steps**, beyond a small amount for
+clearing an encounter. This is the point of the whole structure: going deeper
+is a decision made with what you have left, not a formality.
+
+Two things give it back. Clearing a fight returns about a seventh of your
+health, and a **Wanderer's Rest** restores a chunk of both — and the step
+before the Warden is *always* a Rest, so you are never sent at the boss with
+nothing left.
 
 ### Resolve
 
@@ -280,8 +292,9 @@ Experience needed for the next level is `round(80 × level^1.5)`:
 |---|---|---|---|---|---|
 | To next | 80 | 226 | 416 | 894 | 2,530 |
 
-Every level gives +8 max HP, +4 max Focus, better base stats, and a new Echo
-slot every second level.
+Every level gives +12 max HP, +6 max Focus, better base stats, and a new Echo
+slot every second level. A level-one Wanderer starts with 85 health and 30
+Focus.
 
 Echoes level from the same fights — the summoned one takes the full share,
 carried ones a quarter. **An Echo can never exceed your level.** Once it reaches
@@ -325,8 +338,10 @@ free — read what the Husk is before choosing the shape you meet it in.
 already beat is a cheap place to fill in a codex entry you will want later
 against its Greater cousin.
 
-**Retreat is not losing.** Banking a good run at depth six beats dying at depth
-eight and forfeiting all of it. The gold is the only thing death actually takes,
+**Retreat is not losing — it is the intended play.** Simulated to the bottom
+without ever withdrawing, even a well-played run reaches depth 5 to 8 of 10.
+Banking a good run at depth six beats dying at depth eight and forfeiting all
+of it. The gold is the only thing death actually takes,
 but it takes all of it.
 
 **Weave the ordinary, keep the odd.** Rarity-1 Echoes are raw material. An Echo

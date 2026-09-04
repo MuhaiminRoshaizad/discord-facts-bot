@@ -167,7 +167,8 @@ requiring a `401`. If it refuses to save, the cause is almost always
 ### Checks
 
 ```bash
-npm test          # 204 tests, mostly over src/game
+npm run sim       # balance sweep - win rates, fight length, whole descents
+npm test          # 232 tests, mostly over src/game
 npm run typecheck # strict, plus a second pass for the Node scripts
 ```
 

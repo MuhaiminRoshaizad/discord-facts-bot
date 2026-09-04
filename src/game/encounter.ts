@@ -39,14 +39,34 @@ export interface RiftEvent {
   gold?: number;
   /** Wanderer's Rest only. */
   focus?: number;
+  heal?: number;
   /** Negotiation only. */
   offerSpeciesId?: string;
   offerCost?: number;
 }
 
-/** How strong the things at this depth are. */
+/**
+ * How strong the things at this depth are.
+ *
+ * Never above the Wanderer. The old curve put Husks at level 19 against a
+ * level 16 player at the bottom of a Rift, which combined with their scaling
+ * made the Warden mathematically unbeatable.
+ */
 export function huskLevelFor(wandererLevel: number, depth: number): number {
-  return Math.max(1, Math.round(wandererLevel * 0.8 + depth * 0.6));
+  const level = Math.round(wandererLevel * 0.7 + depth * 0.35);
+  return Math.max(1, Math.min(wandererLevel, level));
+}
+
+/**
+ * How many Lesser Husks turn up at once.
+ *
+ * Three of them on the first step of a first run, against someone holding a
+ * single Echo, is not a difficulty curve - it is a wall.
+ */
+export function packSizeAt(depth: number, rng: Rng): number {
+  if (depth <= 1) return 1;
+  if (depth <= 3) return rng.int(1, 2);
+  return rng.int(1, 3);
 }
 
 interface Weighted {
@@ -58,14 +78,21 @@ interface Weighted {
  * Table weights at a given depth. Deeper means fewer packs of trash and more
  * of everything worth stopping for.
  */
-export function tableAt(depth: number): Weighted[] {
+export function tableAt(depth: number, wandererLevel = 99): Weighted[] {
+  // Rank matters more than level: a "level one" Forgemaw is still a 140-health
+  // elite, so scaling alone never made one fair against a new Wanderer. Elites
+  // are gated on the player as well as the depth, and simply do not appear
+  // until there is something that can trade with them.
+  const elites = depth >= 3 && wandererLevel >= 4;
+  const rares = depth >= 4 && wandererLevel >= 6;
+
   return [
-    { kind: 'lesser', weight: Math.max(15, 55 - depth * 3) },
-    { kind: 'greater', weight: 20 + depth * 2 },
+    { kind: 'lesser', weight: Math.max(25, 60 - depth * 3) },
+    { kind: 'greater', weight: elites ? (depth - 2) * 7 : 0 },
     { kind: 'cache', weight: 10 },
-    { kind: 'rest', weight: 7 },
+    { kind: 'rest', weight: 8 },
     { kind: 'negotiation', weight: 5 },
-    { kind: 'rare', weight: 3 + depth * 0.4 },
+    { kind: 'rare', weight: rares ? (depth - 3) * 1.6 : 0 },
   ];
 }
 
@@ -86,11 +113,17 @@ export function rollEvent(depth: number, wandererLevel: number, rng: Rng): RiftE
     };
   }
 
-  const chosen = rng.weighted(tableAt(depth), (entry) => entry.weight);
+  // The step before the Warden is always a breather. Ten steps of attrition
+  // followed immediately by a boss is a wall dressed up as a climax.
+  if (depth === WARDEN_DEPTH - 1) {
+    return { kind: 'rest', focus: 40 + depth * 4, heal: 45 + depth * 6 };
+  }
+
+  const chosen = rng.weighted(tableAt(depth, wandererLevel), (entry) => entry.weight);
 
   switch (chosen.kind) {
     case 'lesser': {
-      const count = rng.int(1, 3);
+      const count = packSizeAt(depth, rng);
       return {
         kind: 'lesser',
         husks: Array.from({ length: count }, () => ({
@@ -117,7 +150,11 @@ export function rollEvent(depth: number, wandererLevel: number, rng: Rng): RiftE
       return { kind: 'cache', gold: rng.int(20, 60) + depth * 8 };
 
     case 'rest':
-      return { kind: 'rest', focus: rng.int(15, 30) + depth * 2 };
+      return {
+        kind: 'rest',
+        focus: rng.int(15, 30) + depth * 2,
+        heal: rng.int(20, 38) + depth * 3,
+      };
 
     case 'negotiation': {
       // Only the plainer Echoes turn up willing to be talked to.

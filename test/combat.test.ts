@@ -376,6 +376,81 @@ describe('the Veil', () => {
   });
 });
 
+describe('surviving the opening blow', () => {
+  // The defect this exists to prevent: a level-one Husk that happened to know
+  // your element deleted you before you had acted twice. Simulation put 72% of
+  // all deaths in that category, and no amount of skill changed any of them.
+  it('never kills anything outright from full health', () => {
+    const state = encounter();
+    const husk = combatant(state, 'h:0')!;
+    husk.hp = 30;
+    husk.maxHp = 30;
+    setAffinities(state, 'h:0', { ember: 'weak' });
+
+    const result = takeAction(state, { kind: 'skill', skillId: 'cinder', targetId: 'h:0' });
+    if (!result.ok) throw new Error('rejected');
+    expect(result.state.outcome).toBe('ongoing');
+    expect(combatant(result.state, 'h:0')!.hp).toBe(1);
+  });
+
+  it('still lands the full damage on anything already hurt', () => {
+    const state = encounter();
+    const husk = combatant(state, 'h:0')!;
+    husk.maxHp = 500;
+    husk.hp = 20;
+    setAffinities(state, 'h:0', { ember: 'weak' });
+
+    const result = takeAction(state, { kind: 'skill', skillId: 'cinder', targetId: 'h:0' });
+    if (!result.ok) throw new Error('rejected');
+    expect(result.state.outcome).toBe('won');
+  });
+
+  // Otherwise a target could be parked at full health and made invulnerable.
+  it('cannot be chained, because the survivor is no longer at full health', () => {
+    let state = encounter();
+    const husk = combatant(state, 'h:0')!;
+    husk.hp = 30;
+    husk.maxHp = 30;
+    setAffinities(state, 'h:0', { ember: 'weak' });
+
+    for (let i = 0; i < 4 && state.outcome === 'ongoing'; i++) {
+      const r = takeAction(state, { kind: 'skill', skillId: 'cinder', targetId: 'h:0' });
+      if (!r.ok) break;
+      state = r.state;
+    }
+    expect(state.outcome).toBe('won');
+  });
+
+  // A creature with a single point of maximum health is permanently at "full",
+  // so an unfloored rule would make it permanently unkillable.
+  it('still kills something whose maximum health is one', () => {
+    const state = encounter();
+    const husk = combatant(state, 'h:0')!;
+    husk.hp = 1;
+    husk.maxHp = 1;
+
+    const result = takeAction(state, { kind: 'skill', skillId: 'strike', targetId: 'h:0' });
+    if (!result.ok) throw new Error('rejected');
+    expect(result.state.outcome).toBe('won');
+  });
+});
+
+describe('husk scaling', () => {
+  // One shared multiplier across all three stats is what made the Warden
+  // unbeatable: it tripled its damage at the same rate as its health.
+  it('grows health faster than attack', () => {
+    const low = createHusk('forgemaw', 1, 0);
+    const high = createHusk('forgemaw', 15, 0);
+    expect(high.maxHp / low.maxHp).toBeGreaterThan(high.atk / low.atk);
+  });
+
+  it('never shrinks a Husk below its printed stats', () => {
+    const base = createHusk('gnaw', 1, 0);
+    expect(base.maxHp).toBe(28);
+    expect(base.atk).toBe(7);
+  });
+});
+
 describe('recording what was struck', () => {
   it('remembers the element tried, so the codex can reveal that affinity', () => {
     const state = encounter();

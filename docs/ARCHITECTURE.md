@@ -225,6 +225,18 @@ ladder all move together or not at all, so a run cannot half-pay.
 **Only a fresh knockdown grants Second Wind.** Persona's own rule, and it
 terminates weakness chains without needing a separate cap.
 
+**Balance is measured, not argued.** `npm run sim` plays thousands of fights
+and whole descents through the real engine and reports win rates, fight
+length and early deaths. It was written because the shipped numbers gave a
+25% win rate with 72% of deaths arriving before the second round, and a
+Warden that won 600 fights out of 600 — none of which was visible by reading
+the formula. Change a number, run the sweep, read what happened.
+
+**Nothing dies from full health in one blow.** The single most important
+combat rule, and the one least visible in the code: a killing hit against a
+target at full health leaves it on 1. It cannot chain, and it is floored at 1
+damage so a creature with one maximum health is not immortal.
+
 **The interactions endpoint is `/interactions`, not `/`.** Cloudflare's asset
 layer answers before the Worker and returns `405` to a POST at `/`, where the
 compendium lives — Discord's endpoint validation POSTs and requires `401`, so it

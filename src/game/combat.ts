@@ -33,6 +33,33 @@ import {
 
 export const WANDERER_ID = 'w';
 
+/**
+ * Overall pace of the fight.
+ *
+ * `power × atk/(atk+def)` sits near half of power at parity, so this is what
+ * decides how many blows a fight takes. It was 2, which made a 32-power skill
+ * hit for up to 64 before the 1.75 weakness multiplier - against a level-one
+ * Wanderer with 40 health. Fights averaged 1.6 rounds and were decided before
+ * anyone had made a second decision.
+ */
+export const DAMAGE_COEFFICIENT = 1.15;
+
+export const CRIT_MULTIPLIER = 1.5;
+
+/**
+ * How reliably a Husk finds the right element.
+ *
+ * Trash mobs used to play perfectly, which meant a Lesser Husk always knew
+ * your weakness on round one. Only elites and Wardens should be tacticians;
+ * the rank and file swing at what is in front of them.
+ */
+const CUNNING: Record<HuskRank, number> = {
+  lesser: 0.3,
+  greater: 0.75,
+  rare: 0.5,
+  warden: 1,
+};
+
 export type Side = 'party' | 'husks';
 
 export interface Combatant {
@@ -162,10 +189,23 @@ export function createAlly(
   };
 }
 
+/**
+ * Husks scale on three separate curves.
+ *
+ * One shared multiplier across HP, attack and defence compounds against a
+ * player whose own stats grow far more slowly: at level 16 the Warden had
+ * triple stats across the board and won 600 fights out of 600. Health may
+ * climb steeply - a tougher enemy is a longer fight - but attack must not,
+ * because attack is what turns a fight into a coin toss.
+ */
+export const HUSK_HP_SCALE = 0.08;
+export const HUSK_ATK_SCALE = 0.05;
+export const HUSK_DEF_SCALE = 0.04;
+
 export function createHusk(speciesId: string, level: number, index: number): Combatant {
   const species = huskSpecies(speciesId);
-  const scale = 1 + (level - 1) * 0.12;
-  const hp = Math.round(species.hp * scale);
+  const steps = Math.max(0, level - 1);
+  const hp = Math.round(species.hp * (1 + steps * HUSK_HP_SCALE));
   return {
     id: `h:${index}`,
     side: 'husks',
@@ -175,9 +215,9 @@ export function createHusk(speciesId: string, level: number, index: number): Com
     maxHp: hp,
     focus: 999,
     maxFocus: 999,
-    atk: Math.round(species.stats.atk * scale),
-    def: Math.round(species.stats.def * scale),
-    spd: Math.round(species.stats.spd * scale),
+    atk: Math.round(species.stats.atk * (1 + steps * HUSK_ATK_SCALE)),
+    def: Math.round(species.stats.def * (1 + steps * HUSK_DEF_SCALE)),
+    spd: Math.round(species.stats.spd * (1 + steps * HUSK_DEF_SCALE)),
     affinities: species.affinities,
     skillIds: species.skillIds,
     downed: false,
@@ -438,8 +478,29 @@ function applyDamage(
   const crit = outcome.multiplier > 0 && rng.chance(critChance);
 
   const variance = 0.9 + rng.next() * 0.2;
-  const raw = power * (atk / (atk + def)) * 2 * outcome.multiplier * (crit ? 1.5 : 1) * variance;
-  const amount = outcome.multiplier === 0 ? 0 : Math.max(1, Math.round(raw));
+  const raw =
+    power *
+    (atk / (atk + def)) *
+    DAMAGE_COEFFICIENT *
+    outcome.multiplier *
+    (crit ? CRIT_MULTIPLIER : 1) *
+    variance;
+  let amount = outcome.multiplier === 0 ? 0 : Math.max(1, Math.round(raw));
+
+  /**
+   * Nothing dies from full health in one blow.
+   *
+   * Simulation put 72% of all deaths in this category: a level-one Husk that
+   * happened to know your element deleted you before you had acted twice, and
+   * no amount of skill changed the outcome. A fight you lose should be a fight
+   * you were losing. This costs the attacker the kill, never the damage, and
+   * cannot chain - the target is no longer at full health afterwards.
+   */
+  if (!outcome.absorbed && !outcome.reflected && target.hp >= target.maxHp && amount >= target.hp) {
+    // Floored at 1, or anything with a single point of maximum health would be
+    // permanently at "full" and therefore permanently unkillable.
+    amount = Math.max(1, target.hp - 1);
+  }
 
   if (veiled && breaksVeil(outcome)) {
     target.veilRemaining = Math.max(0, (target.veilRemaining ?? 0) - 1);
@@ -579,9 +640,16 @@ function useSkill(
 
 // --- automatic turns ------------------------------------------------------
 
-function bestDamageSkill(actor: Combatant, enemies: Combatant[]): Skill {
+function bestDamageSkill(actor: Combatant, enemies: Combatant[], rng?: Rng): Skill {
   const affordable = usableSkills(actor).filter((s) => s.kind === 'damage');
   if (affordable.length === 0) return STRIKE;
+
+  // A Husk below its rank's cunning swings at whatever comes to hand. Only
+  // the ones that are meant to be frightening reliably find your weakness.
+  const cunning = actor.rank ? CUNNING[actor.rank] : 1;
+  if (rng && cunning < 1 && !rng.chance(cunning)) {
+    return rng.pick(affordable);
+  }
 
   let best = STRIKE;
   let bestScore = -1;
@@ -639,14 +707,14 @@ function autoTurn(state: CombatState, actor: Combatant): void {
   } else if (stance === 'support') {
     const heal = usableSkills(actor).find((s) => s.kind === 'heal');
     const buff = usableSkills(actor).find((s) => s.kind === 'buff' || s.kind === 'debuff');
-    chosen = (hurt.length > 0 && heal) || buff || bestDamageSkill(actor, enemies);
+    chosen = (hurt.length > 0 && heal) || buff || bestDamageSkill(actor, enemies, rng);
   } else {
     // Assault allies and every Husk share the same instinct: hunt weaknesses.
     const support =
       actor.side === 'husks' && hurt.length === 0 && rng.chance(0.2)
         ? usableSkills(actor).find((s) => s.kind === 'debuff')
         : undefined;
-    chosen = support ?? bestDamageSkill(actor, enemies);
+    chosen = support ?? bestDamageSkill(actor, enemies, rng);
   }
 
   const target =

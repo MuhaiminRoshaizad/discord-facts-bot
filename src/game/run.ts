@@ -70,6 +70,9 @@ export interface RunState {
 
 export const MAX_DEPTH = WARDEN_DEPTH;
 
+/** Health returned for clearing an encounter, as a fraction of the maximum. */
+export const CLEAR_HEAL_FRACTION = 0.14;
+
 function allyDefinitions(allies: RunAlly[]) {
   return allies.map((a) => ({
     definition: lookupAlly(a.id),
@@ -162,10 +165,20 @@ export function stepInto(state: RunState): RunState {
       state.pendingGold += event.gold ?? 0;
       state.notice = `You turn up ${event.gold} gold, unattended and unclaimed.`;
       break;
-    case 'rest':
-      state.focus += event.focus ?? 0;
-      state.notice = `You rest. ${event.focus} Focus returns.`;
+    case 'rest': {
+      // Clamped to the Wanderer's own maxima, or a run could stockpile health
+      // and Focus above what any fight would ever grant back.
+      const ceiling = createWanderer(state.wanderer);
+      const healed = Math.min(event.heal ?? 0, ceiling.maxHp - state.hp);
+      const restored = Math.min(event.focus ?? 0, ceiling.maxFocus - state.focus);
+      state.hp += healed;
+      state.focus += restored;
+      state.notice =
+        healed > 0 || restored > 0
+          ? `You rest. ${healed} health and ${restored} Focus return.`
+          : 'You rest, though there was nothing left to recover.';
       break;
+    }
     case 'negotiation':
       state.notice = null;
       break;
@@ -212,6 +225,21 @@ export function settleCombat(state: RunState): RunState {
 
   if (combat.outcome === 'won' || combat.outcome === 'fled') {
     const rng = createRng(state.rngState);
+
+    /**
+     * Clearing a step returns a little health.
+     *
+     * Without it a descent is pure attrition: every individual fight was
+     * winnable at better than four in five, and yet whole runs reached the
+     * bottom under one time in ten, because nothing ever gave any of it back.
+     * Deliberately a fraction rather than a fixed amount, so it keeps pace
+     * with the Wanderer instead of trivialising the early game.
+     */
+    if (combat.outcome === 'won') {
+      const ceiling = createWanderer(state.wanderer);
+      const mended = Math.round(ceiling.maxHp * CLEAR_HEAL_FRACTION);
+      state.hp = Math.min(ceiling.maxHp, state.hp + mended);
+    }
 
     if (combat.outcome === 'won' && state.event?.husks) {
       const spoils = encounterSpoils(

@@ -56,14 +56,21 @@ describe('echoCapacity', () => {
 });
 
 describe('derived maxima', () => {
-  it('starts a level one Wanderer at 40 HP and 20 Focus', () => {
-    expect(maxHp(1)).toBe(40);
-    expect(maxFocus(1)).toBe(20);
+  it('starts a level one Wanderer at 85 HP and 30 Focus', () => {
+    expect(maxHp(1)).toBe(85);
+    expect(maxFocus(1)).toBe(30);
   });
 
   it('grows every level', () => {
-    expect(maxHp(2)).toBe(48);
-    expect(maxFocus(2)).toBe(24);
+    expect(maxHp(2)).toBe(97);
+    expect(maxFocus(2)).toBe(36);
+  });
+
+  // Health has to outrun the biggest single blow by a wide margin, or turn
+  // order decides the fight. The strongest skill is 62 power; against a low
+  // defence that lands near 2x power before the 1.75 weakness multiplier.
+  it('keeps health comfortably ahead of the hardest single hit', () => {
+    expect(maxHp(1)).toBeGreaterThan(62 * 1.15 * 0.75);
   });
 
   it('gives every stat a positive base', () => {

@@ -186,11 +186,14 @@ const list: HuskSpecies[] = [
     suit: 'tide',
     rank: 'warden',
     stats: { atk: 19, def: 15, spd: 9 },
-    hp: 320,
+    hp: 210,
     affinities: {
       arc: 'weak',
       radiance: 'weak',
-      frost: 'drain',
+      // Resist, not drain. A boss that heals from an element, behind a Veil
+      // that hides which element that is, cannot be beaten by a player who
+      // brought the wrong Echo - and they cannot know until they try.
+      frost: 'resist',
       ember: 'resist',
       force: 'resist',
     },

@@ -13,12 +13,35 @@ import { echoSpecies } from '../src/game/content/echoes';
 import { huskSpecies } from '../src/game/content/husks';
 
 describe('rift tables', () => {
-  it('keeps every weight positive at every reachable depth', () => {
+  it('never assigns a negative weight', () => {
     for (let depth = 0; depth < WARDEN_DEPTH; depth++) {
-      for (const entry of tableAt(depth)) {
-        expect(entry.weight, `${entry.kind} at depth ${depth}`).toBeGreaterThan(0);
+      for (const entry of tableAt(depth, 99)) {
+        expect(entry.weight, `${entry.kind} at depth ${depth}`).toBeGreaterThanOrEqual(0);
       }
     }
+  });
+
+  it('always leaves something to roll', () => {
+    for (let depth = 0; depth < WARDEN_DEPTH; depth++) {
+      for (const level of [1, 5, 20]) {
+        const total = tableAt(depth, level).reduce((sum, e) => sum + e.weight, 0);
+        expect(total, `depth ${depth} level ${level}`).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  // Rank outweighs level: a "level one" Forgemaw is still a 140-health elite,
+  // so a new Wanderer must not meet one however deep they wander.
+  it('keeps elites away from a low-level Wanderer entirely', () => {
+    for (let depth = 0; depth < WARDEN_DEPTH; depth++) {
+      const greater = tableAt(depth, 1).find((e) => e.kind === 'greater');
+      expect(greater?.weight, `depth ${depth}`).toBe(0);
+    }
+  });
+
+  it('lets elites in once the Wanderer can trade with them', () => {
+    const greater = tableAt(6, 10).find((e) => e.kind === 'greater');
+    expect(greater?.weight).toBeGreaterThan(0);
   });
 
   it('thins the trash and thickens the elites with depth', () => {
@@ -96,12 +119,31 @@ describe('rollEvent', () => {
     expect(seen).toBeGreaterThan(0);
   });
 
-  it('reaches every kind of event across a long descent', () => {
+  it('reaches every kind of event for a Wanderer who has earned them', () => {
     const rng = createRng(2026);
     const seen = new Set<RiftEventKind>();
-    for (let i = 0; i < 3000; i++) seen.add(rollEvent(rng.int(0, 9), 5, rng).kind);
+    for (let i = 0; i < 4000; i++) seen.add(rollEvent(rng.int(0, 9), 20, rng).kind);
     for (const kind of ['lesser', 'greater', 'rare', 'cache', 'rest', 'negotiation'] as const) {
       expect(seen, `never rolled ${kind}`).toContain(kind);
+    }
+  });
+
+  it('offers a new Wanderer only what they can survive', () => {
+    const rng = createRng(4242);
+    const seen = new Set<RiftEventKind>();
+    for (let i = 0; i < 4000; i++) seen.add(rollEvent(rng.int(0, 9), 1, rng).kind);
+    expect(seen).not.toContain('greater');
+    expect(seen).not.toContain('rare');
+    expect(seen).toContain('lesser');
+  });
+
+  // Arriving at a boss after ten steps of attrition with no chance to have
+  // healed is a wall, not a climax.
+  it('always offers a breather on the step before the Warden', () => {
+    for (let seed = 0; seed < 30; seed++) {
+      const event = rollEvent(WARDEN_DEPTH - 1, 12, createRng(seed));
+      expect(event.kind).toBe('rest');
+      expect(event.heal ?? 0).toBeGreaterThan(0);
     }
   });
 });
